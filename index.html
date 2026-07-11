@@ -157,6 +157,7 @@
   <p class="sub">夕暮れの工房。仲間と沈黙のうちに素材を分け合う。</p>
   <div id="banner"></div>
   <div id="app"></div>
+  <div id="helpLayer"></div>
 </div>
 
 <script>
@@ -378,7 +379,7 @@ function existingSeats(){ const r=[]; for(let s=0;s<4;s++)if(ST.seats&&ST.seats[
 function liveSeats(){ const r=[]; for(let s=0;s<4;s++)if(seatActive(s))r.push(s); return r; }
 
 // ============ ゲーム進行（全てtransaction＋権限ガード）============
-async function startGame(rounds){
+async function startGame(rounds,advanced){
   if(!amResolver()){ showError("開始できるのは進行役（ホスト）だけです。"); return; }
   const seats=liveSeats();
   const n=seats.length;
@@ -396,12 +397,14 @@ async function startGame(rounds){
     await withRetry(()=>_db.ref(roomPath("seats")).set(compact));
     for(let s=0;s<n2;s++)if(compact[s].uid===myUid)ST.mySeat=s;
     // 配布（ホストがゲームマスターとして配る）
-    const ids=dealRecipeIds(n2);
+    const ids = advanced
+      ? dealAdvanced(n2).map(seat=>seat.map(r=>r.id))   // 上級：通常枠2＋秘伝枠1
+      : dealRecipeIds(n2);                              // 通常
     const recipes={}; for(let s=0;s<n2;s++)recipes[s]=ids[s];
     await withRetry(()=>_db.ref(roomPath("recipes")).set(recipes));
     // ゲーム初期化
     const band=makeBand(n2);
-    const game={n:n2,rounds,round:1,cutter:0,teamTotal:0,phase:"cut",band,cuts:null,assign:null,chooseIdx:0,roundEval:null,history:null};
+    const game={n:n2,rounds,round:1,cutter:0,teamTotal:0,advanced:!!advanced,phase:"cut",band,cuts:null,assign:null,chooseIdx:0,roundEval:null,history:null};
     await withRetry(()=>_db.ref(roomPath("game")).set(game));
     await withRetry(()=>_db.ref(roomPath("meta/phase")).set("playing"));
     // 購読し直し（新席で自分の好みを取り直す）
@@ -482,7 +485,7 @@ async function resolveScore(){
     await withRetry(()=>_db.ref(roomPath("game")).transaction(cur=>{
       if(!cur||cur.phase!=="await_score"||cur.round!==g.round)return; // 二重採点防止
       cur.teamTotal=(cur.teamTotal||0)+rs;
-      cur.roundEval={roundScore:rs,omni,rational:rat,pct};
+      cur.roundEval={roundScore:rs,omni,rational:rat,pct,cutPct};
       cur.history=cur.history||[];
       cur.history.push({round:cur.round,cutter:cur.cutter,contents,roundScore:rs,omni,rational:rat,pct,
         cutPct, band:g.band.slice(), cuts:g.cuts.slice(), piles:orderedPiles,owners});
@@ -494,7 +497,8 @@ function onGameUpdate(){ soundOnGameTransition(); if(ST.game&&ST.game.phase==="a
 
 // 次の儀式へ（ホストのみ）
 async function nextRound(){
-  if(!amResolver()){ showError("進行できるのは進行役だけです。"); return; }
+  // 誰でも進行できる（進行役の切断で止まらないように）。
+  // 二重実行は下のtransaction内 phase ガードで防がれるため安全。
   const g=ST.game; if(!g||g.phase!=="score")return;
   try{
     if(g.round>=g.rounds){
@@ -558,7 +562,14 @@ function recordPanel(history,cutterN,showPt,revealRecipes){
   html+=`</div>`;
   return html;
 }
-function toggleHelp(){ helpOpen=!helpOpen; if(helpOpen){ac();SFX.soft();} render(); }
+function toggleHelp(){
+  helpOpen=!helpOpen;
+  if(helpOpen){ ac(); SFX.soft(); }
+  // ★render()を呼ばない：ヘルプ層だけを書き換えるので、
+  //   ゲーム側の再描画（Firebase購読）でモーダルのスクロール位置が失われない
+  const layer=document.getElementById("helpLayer");
+  if(layer) layer.innerHTML = helpOpen ? helpHTML() : "";
+}
 function term(label,desc){return `<span class="term" onclick="const s=this.classList.contains('show');document.querySelectorAll('.term.show').forEach(e=>e.classList.remove('show'));if(!s)this.classList.add('show');event.stopPropagation();">${label}<span class="tip">${desc}</span></span>`;}
 const T={
   cutter:()=>term("調合師","素材を分ける係。坩堝を選べず、みんなが取った残り一つを受け取る。毎儀式で交代。"),
@@ -640,29 +651,84 @@ async function spectate(){
 }
 function spectatorHTML(){
   const g=ST.game;
-  let html=`<div class="panel"><div class="eyebrow">👁 観戦モード（全情報監視・デバッグ用）</div>
-    <div class="kv">局面：${ST.meta?ST.meta.phase:'—'}</div></div>`;
+  const phase=ST.meta?ST.meta.phase:'—';
+  // ヘッダ：接続鮮度も出す
+  const age=ST.lastUpdate?Math.round((now()-ST.lastUpdate)/1000):null;
+  let html=`<div class="panel"><div class="row spread">
+    <div><span class="eyebrow" style="margin:0">👁 観戦モード（全情報・書込なし）</span>
+      <div class="kv" style="margin-top:4px">部屋 <b style="color:var(--candle-soft);letter-spacing:.2em">${ST.room}</b> ・ 局面 <b>${phase}</b>${g&&g.advanced?' ・ <span class="tag hard" style="font-size:11px">🌟 秘伝</span>':''}</div></div>
+    <div class="kv" style="text-align:right">${ST.connected?'🟢 接続中':'🔴 切断'}<br>${age!=null?`最終同期 ${age}秒前`:''}</div>
+  </div></div>`;
+
+  // 席の状況（切断・オンライン状態）
+  html+=`<div class="panel"><div class="eyebrow">🪑 魔女たちの状況</div><div class="row" style="flex-wrap:wrap;gap:8px">`;
+  const seats=ST.seats||{};
+  const seatKeys=Object.keys(seats).filter(k=>seats[k]&&seats[k].uid).sort((a,b)=>a-b);
+  if(!seatKeys.length) html+=`<div class="kv">まだ誰も着席していません。</div>`;
+  for(const k of seatKeys){ const s=seats[k]; const p=+k;
+    const alive=seatActive(p);
+    const since=s.lastSeen?Math.round((now()-s.lastSeen)/1000):null;
+    const isCutter=g&&g.cutter===p;
+    html+=`<div class="crucible" style="min-width:130px;flex:none;${alive?'':'opacity:.5;border-color:var(--bad)'}">
+      <div class="cHead"><span style="color:${PCOL[p]}">${nameOf(p)}</span>${isCutter?'<span title="調合師">🔪</span>':''}</div>
+      <div class="kv" style="font-size:11px">${alive?'🟢 在席':'🔴 切断'}${since!=null?` ・ ${since}秒前`:''}</div>
+    </div>`; }
+  html+=`</div></div>`;
+
+  if(!g){ html+=`<div class="panel"><div class="kv">まだ儀式が始まっていません（ロビー）。</div></div>`; return html; }
+
+  // 進行状況（誰の番か）
+  const order=chooseOrder(g.cutter,g.n);
+  let turnLine="";
+  if(g.phase==="cut") turnLine=`${pill(g.cutter)} が素材を分けています`;
+  else if(g.phase==="choose"){ const cur=order[g.chooseIdx]; turnLine=`${pill(cur)} が坩堝を選んでいます（${g.chooseIdx+1}/${order.length}）`; }
+  else if(g.phase==="await_score") turnLine=`採点の処理中…`;
+  else if(g.phase==="score") turnLine=`結果を確認中（誰かが「次の儀式へ」を押すと進みます）`;
+  else if(g.phase==="end") turnLine=`儀式は終わりました`;
+  html+=`<div class="panel"><div class="row spread">
+    <div><span class="phase">🕯️ 儀式 ${g.round}/${g.rounds}</span> 調合師 ${pill(g.cutter)}</div>
+    <div class="kv" style="text-align:right">総魔力<br><span class="big" style="font-size:22px">${g.teamTotal||0}</span></div></div>
+    <div class="turnbar" style="margin-top:10px"><span>⏳</span><span class="who">${turnLine}</span></div></div>`;
+
+  // 全員の好み（観戦のみ可視）＋ 現在の坩堝での発火状況
   if(ST.allRecipes){
-    html+=`<div class="panel"><div class="eyebrow">📖 全員の好み（観戦のみ可視）</div>`;
-    const seatCount=Object.keys(ST.allRecipes).length;
-    for(let p=0;p<seatCount;p++){ if(!ST.allRecipes[p])continue;
-      const recs=ST.allRecipes[p].map(byId); let pileOf=null;
-      if(g&&g.cuts&&g.assign){ const piles=toPiles(g.band,g.cuts); for(let pi=0;pi<g.n;pi++)if(g.assign[pi]===p)pileOf=piles[pi]; }
-      html+=`<div class="kv" style="margin-top:6px">${pill(p)}${g&&p===g.cutter?' 🔪':''}</div>`+bookList(recs,pileOf);
+    html+=`<div class="panel"><div class="eyebrow">📖 全員の好み（観戦のみ可視・叶っているものが光ります）</div>`;
+    for(let p=0;p<g.n;p++){ if(!ST.allRecipes[p])continue;
+      const recs=ST.allRecipes[p].map(byIdAny).filter(Boolean);
+      let pileOf=null, myPt=null;
+      if(g.cuts&&g.assign){ const piles=toPiles(g.band,g.cuts);
+        for(let pi=0;pi<g.n;pi++)if(g.assign[pi]===p){ pileOf=piles[pi]; myPt=scorePile(recs,pileOf); } }
+      html+=`<div class="kv" style="margin-top:8px">${pill(p)}${p===g.cutter?' 🔪':''}${myPt!=null?` ・ この儀式 <b style="color:${myPt<0?'var(--bad)':'var(--good)'}">${myPt>0?'+':''}${myPt}</b>`:''}</div>`+bookList(recs,pileOf);
     }
     html+=`</div>`;
   }
-  if(!g){ html+=`<div class="panel"><div class="kv">まだゲームが始まっていません（ロビー）。</div></div>`; return html; }
-  html+=`<div class="panel"><div class="row spread"><div><span class="phase">🕯️ 儀式 ${g.round}/${g.rounds}</span> 調合師 ${pill(g.cutter)}</div><div class="kv" style="text-align:right">総魔力<br><span class="big" style="font-size:22px">${g.teamTotal||0}</span></div></div></div>`;
+
+  // 作業台と坩堝（獲得状況つき）
   if(g.cuts){ const piles=toPiles(g.band,g.cuts); const assign=g.assign||{};
-    html+=`<div class="panel"><div class="eyebrow">⚗️ 坩堝</div><div class="row" style="align-items:stretch">`;
+    html+=`<div class="panel"><div class="eyebrow">⚗️ ${g.n}つの坩堝（獲得状況）</div><div class="row" style="align-items:stretch">`;
     for(let pi=0;pi<g.n;pi++){ const owner=assign[pi];
-      html+=`<div class="crucible"><div class="cHead"><span>坩堝 ${["一","二","三","四"][pi]}</span>${owner!=null?`<span style="color:${PCOL[owner]}">${nameOf(owner)}</span>`:''}</div><div class="mats">${piles[pi].map(m=>matChip(m,true)).join("")}</div>`;
-      if(g.phase==="score"&&owner!=null&&ST.allRecipes&&ST.allRecipes[owner]){ const t=scorePile(ST.allRecipes[owner].map(byId),piles[pi]);
+      const taken=owner!=null;
+      html+=`<div class="crucible" ${taken?'style="border-color:'+PCOL[owner]+'"':''}>
+        <div class="cHead"><span>坩堝 ${["一","二","三","四"][pi]}</span>${taken?`<span style="color:${PCOL[owner]}">${nameOf(owner)}</span>`:'<span class="kv">未取得</span>'}</div>
+        <div class="mats">${piles[pi].map(m=>matChip(m,true)).join("")}</div>`;
+      if(taken&&ST.allRecipes&&ST.allRecipes[owner]){ const recs=ST.allRecipes[owner].map(byIdAny).filter(Boolean); const t=scorePile(recs,piles[pi]);
         html+=`<div style="margin-top:8px" class="kv">${nameOf(owner)}：<b style="color:${t<0?'var(--bad)':'var(--good)'};font-family:var(--grimoire)">${t>0?'+':''}${t}</b></div>`; }
       html+=`</div>`; }
     html+=`</div></div>`;
-  } else { html+=`<div class="panel"><div class="eyebrow">🪵 作業台</div><div class="bench">${g.band.map(m=>`<div class="slot">${matChip(m)}</div>`).join("")}</div></div>`; }
+  } else {
+    html+=`<div class="panel"><div class="eyebrow">🪵 作業台の素材（分ける前）</div><div class="bench">${g.band.map(m=>`<div class="slot">${matChip(m)}</div>`).join("")}</div></div>`;
+  }
+
+  // 採点結果（出ていれば）
+  if(g.phase==="score"&&g.roundEval){ const e=g.roundEval;
+    html+=`<div class="panel"><div class="eyebrow">🌟 この儀式の結果</div>
+      <div class="row spread"><div class="kv">チーム合計</div><div class="big" style="color:${e.roundScore<0?'var(--bad)':'var(--good)'}">${e.roundScore>0?'+':''}${e.roundScore}</div></div>
+      <div class="kv" style="margin-top:6px">完璧 ${e.omni}　合理目安 ${e.rational}　冴え <b style="color:var(--candle)">${e.pct}%</b>${e.cutPct!=null?`　切り方の質 <b>${e.cutPct}%</b>`:''}</div>
+      <div class="meterwrap"><div class="meter" style="width:${Math.max(0,Math.min(100,e.pct))}%"></div></div></div>`;
+  }
+
+  // 工房の記録（観戦は個人点も見える）
+  html+=recordPanel(g.history, g.n, true, ST.allRecipes);
   return html;
 }
 
@@ -850,7 +916,7 @@ function soloHTML(){
   return html;
 }
 
-let _inJoin="", _lobbyRounds=null; // 再描画をまたいで保持する入力値
+let _inJoin="", _lobbyRounds=null, _lobbyAdv=false; // 再描画をまたいで保持する入力値
 let localCuts=[]; // オンライン切り役の一時的な刃
 
 // ============ 描画 ============
@@ -872,17 +938,16 @@ function statusBar(){
 function render(){
   renderBanner();
   const app=document.getElementById("app");
-  const help=helpOpen?helpHTML():"";
-  if(SOLO.active){ app.innerHTML=soloHTML()+help; return; }
-  if(!ST.room){ app.innerHTML=homeHTML()+help; return; }
+  if(SOLO.active){ app.innerHTML=soloHTML(); return; }
+  if(!ST.room){ app.innerHTML=homeHTML(); return; }
   let html=statusBar();
   const phase=ST.meta&&ST.meta.phase;
-  if(ST.spectator){ html+=spectatorHTML(); app.innerHTML=html+help; return; }
+  if(ST.spectator){ html+=spectatorHTML(); app.innerHTML=html; return; }
   if(phase==="lobby"){ html+=lobbyHTML(); }
   else if(phase==="playing"){ html+=gameHTML(); }
   else if(phase==="ended"){ html+=endHTML(); }
   else { html+=`<div class="panel"><div class="kv">部屋を同期中…</div></div>`; }
-  app.innerHTML=html+help;
+  app.innerHTML=html;
 }
 function homeHTML(){
   return `<div class="panel">
@@ -916,8 +981,11 @@ function lobbyHTML(){
   html+=`</div>`;
   if(amResolver()){
     const rsel=(_lobbyRounds===n*2||_lobbyRounds===n*3)?_lobbyRounds:n*2;
-    html+=`<div class="row" style="margin-top:14px"><label class="kv">🕯️ 儀式数：<select id="rounds" onchange="_lobbyRounds=parseInt(this.value)"><option value="${n*2}" ${rsel===n*2?'selected':''}>${n*2}（二巡・標準）</option><option value="${n*3}" ${rsel===n*3?'selected':''}>${n*3}（三巡・長め／任意）</option></select></label>
-      <button class="primary" ${n<3?'disabled':''} onclick="startGame(${rsel})">✦ ${n}人で開始</button></div>
+    html+=`<div class="row" style="margin-top:14px"><label class="kv">🕯️ 儀式数：<select id="rounds" onchange="_lobbyRounds=parseInt(this.value)"><option value="${n*2}" ${rsel===n*2?'selected':''}>${n*2}（二巡・標準）</option><option value="${n*3}" ${rsel===n*3?'selected':''}>${n*3}（三巡・長め／任意）</option></select></label></div>
+      <div class="row" style="margin-top:10px"><label class="kv" style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="advchk" ${_lobbyAdv?'checked':''} onchange="_lobbyAdv=this.checked;render()">
+        <span class="tag hard">🌟 秘伝</span> 上級モード（各自「通常枠2＋秘伝枠1」／秘伝は+10・達成困難）</label></div>
+      <div class="row" style="margin-top:12px"><button class="primary" ${n<3?'disabled':''} onclick="startGame(${rsel},${_lobbyAdv?'true':'false'})">✦ ${n}人で開始${_lobbyAdv?'（上級）':''}</button></div>
       ${n<3?`<div class="hint"><span class="hi">✎</span><span>あと${3-n}人で開始できます（3〜4人）。</span></div>`:''}`;
   } else {
     html+=`<div class="hint" style="margin-top:14px"><span class="hi">✎</span><span>進行役（ホスト）の開始を待っています。</span></div>`;
@@ -933,7 +1001,7 @@ function gameHTML(){
   let html="";
   // ヘッダ
   html+=`<div class="panel"><div class="row spread">
-    <div><span class="phase">🕯️ 儀式 ${g.round}/${g.rounds}</span> &nbsp;調合師 ${pill(g.cutter)}${g.cutter===ST.mySeat?' <span class="kv">(あなた)</span>':''}</div>
+    <div><span class="phase">🕯️ 儀式 ${g.round}/${g.rounds}</span> &nbsp;調合師 ${pill(g.cutter)}${g.cutter===ST.mySeat?' <span class="kv">(あなた)</span>':''}${g.advanced?' <span class="tag hard" style="font-size:11px">🌟 秘伝</span>':''}</div>
     <div class="kv" style="text-align:right">総魔力<br><span class="big" style="font-size:22px">${g.teamTotal||0}</span></div></div>`;
   // 手番ハイライト（誰の番か・自分の番か一目で）
   let turnWho="", isMine=false;
@@ -1019,8 +1087,8 @@ function gameHTML(){
       <div class="kv" style="margin-top:6px">完璧（全知最大）${e.omni}　冴え <b style="color:var(--candle)">${e.pct}%</b></div>
       <div class="meterwrap"><div class="meter" style="width:${Math.max(0,Math.min(100,e.pct))}%"></div></div>
       <div class="hint"><span class="hi">✎</span><span>公開されるのは<b>チーム合計だけ</b>。各自の点は本人にしか見えない。<b>誰がどう切り、どの塊を選んだか</b>——そこから仲間の好みを読む。</span></div>`;
-    if(amResolver()){ html+=`<div class="row" style="margin-top:14px"><button class="primary" onclick="nextRound()">${g.round>=g.rounds?'✦ 儀式を終える':'次の儀式へ →'}</button></div>`; }
-    else { html+=`<div class="hint" style="margin-top:12px"><span class="hi">⏳</span><span>進行役の操作を待っています…</span></div>`; }
+    html+=`<div class="row" style="margin-top:14px"><button class="primary" onclick="nextRound()">${g.round>=g.rounds?'✦ 儀式を終える':'次の儀式へ →'}</button></div>
+      <div class="hint"><span class="hi">✎</span><span>誰でも進められます。準備ができた人が押してください。</span></div>`;
     html+=`</div>`;
   }
   if(g.phase==="await_score"){ html+=`<div class="panel"><div class="kv">⚗️ 調合の結果を確かめています…</div></div>`; }
