@@ -2,6 +2,9 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>影の競り ― 盲目の宝石商たち</title>
 <style>
@@ -74,14 +77,13 @@ th .tm .tip{bottom:auto;top:135%}
 <script>
 /* ▼▼▼ Firebaseコンソールの「Config」の中身をここに貼る（変数名は FIREBASE_CONFIG のまま） ▼▼▼ */
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDygMPoYmkK51c7zJRrZn-NPQDMk7cmNls",
-  authDomain: "boadgame2.firebaseapp.com",
-  databaseURL: "https://boadgame2-default-rtdb.firebaseio.com",
-  projectId: "boadgame2",
-  storageBucket: "boadgame2.firebasestorage.app",
-  messagingSenderId: "325134431436",
-  appId: "1:325134431436:web:96154e7e489845997e7e69",
-  measurementId: "G-55F9PD47KR"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 /* ▲▲▲ ここまで ▲▲▲ */
 let _db=null, FB_OK=false;
@@ -294,6 +296,7 @@ function npcTurn(){
 
 
 /* ============ オンライン基盤 ============ */
+const VER="1.0";   // ★版。卓を作るときDBに記録し、参加者と食い違ったら警告する
 const ON={room:null,seat:null,uid:null,spec:false,lastSync:0,conn:false,unsub:[],lots:null};
 function uid(){let u=localStorage.getItem("ks_uid");if(!u){u="u"+Math.random().toString(36).slice(2,10);localStorage.setItem("ks_uid",u);}return u;}
 function code4(){const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let c="";for(let i=0;i<4;i++)c+=A[rn(A.length)];return c;}
@@ -315,7 +318,7 @@ async function createRoom(name,n){
   const lots=genLots(nc,R.ROUNDS);
   ON.lots=lots; localStorage.setItem(lsKey(),JSON.stringify(lots));
   await withRetry(()=>ref().set({
-    meta:{host:ON.uid,phase:"lobby",n:R.P,nc,rounds:R.ROUNDS,money:R.MONEY,t:nowMs()},
+    meta:{host:ON.uid,phase:"lobby",n:R.P,nc,rounds:R.ROUNDS,money:R.MONEY,t:nowMs(),ver:VER},
     seats:{0:{uid:ON.uid,name:name||"ホスト",lastSeen:nowMs()}},
   }));
   attach();
@@ -482,9 +485,16 @@ function onlineHTML(){
   ensureHostPriv();
   const m=DB.meta; if(!m)return `<div class="card"><div class="kv">卓を読み込み中…</div></div>`;
   const n=m.n, g=DB.game;
-  let h=`<div class="bar"><div>
+  let h="";
+  // ★版の食い違い検出（キャッシュで古い版を開いたまま参加すると、原因不明の不具合になる）
+  if(m.ver && m.ver!==VER){
+    h+=`<div class="err">⚠️ <b>版が食い違っています</b> ―― この卓は <b>v${m.ver}</b>、あなたのページは <b>v${VER}</b>。<br>
+     <b>ページを再読み込みしてください</b>（Windows: Ctrl+Shift+R / Mac: Cmd+Shift+R）。<br>
+     <span class="kv">古い版のまま遊ぶと、通信の形が合わず、原因不明の不具合になります。</span></div>`;
+  }
+  h+=`<div class="bar"><div>
     <b style="color:var(--gold2)">合言葉 ${ON.room}</b>
-    <span class="kv">　${n}人卓 / ${m.nc}面 / 原石${m.rounds}</span>
+    <span class="kv">　${n}人卓 / ${m.nc}面 / 原石${m.rounds}${m.ver?" / v"+m.ver:""}</span>
     ${ON.spec?'<span class="pill" style="background:var(--gold);margin-left:8px">👁 観戦</span>':''}
   </div>
   <div class="kv">${ON.conn?'🟢 接続中':'🔴 切断'} ・ 最終同期 ${Math.max(0,Math.round((nowMs()-ON.lastSync)/1000))}秒前</div></div>`;
@@ -934,4 +944,7 @@ function helpHTML(){return `<div class="modal" onclick="if(event.target===this){
  <div class="row" style="margin-top:16px"><button class="pri" onclick="help=false;render()">閉じる</button></div>
  </div></div>`;}
 render();
-</script></body></html>
+</script><div id="verbadge">影の競り v1.0</div>
+<style>#verbadge{position:fixed;right:7px;bottom:5px;font:10px/1.4 system-ui,sans-serif;
+ color:#5f6675;z-index:9999;pointer-events:none;user-select:none;letter-spacing:.04em;opacity:.75}</style>
+</body></html>
