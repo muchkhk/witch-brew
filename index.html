@@ -60,6 +60,12 @@ h1{font-family:var(--ttl);font-size:32px;letter-spacing:.22em;margin:0 0 6px;
 .note b{color:var(--ink)}
 footer{text-align:center;color:var(--muted);font-size:12px;margin-top:36px}
 footer a{color:var(--muted)}
+#mute{position:fixed;right:8px;top:8px;z-index:9999;
+ background:rgba(26,30,38,.9);border:1px solid #39404f;border-radius:9px;
+ color:#8e97a8;font-size:14px;line-height:1;padding:7px 10px;cursor:pointer;
+ backdrop-filter:blur(4px);transition:.15s}
+#mute:hover{color:#f5d99a;border-color:#e0b352;transform:translateY(-1px)}
+#mute:active{transform:scale(.94)}
 @media (max-width:560px){h1{font-size:25px}.gtitle{font-size:19px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -244,5 +250,66 @@ footer a{color:var(--muted)}
 <div id="verbadge">卓上遊戯 v1.0</div>
 <style>#verbadge{position:fixed;right:7px;bottom:5px;font:10px/1.4 system-ui,sans-serif;
  color:#5f6675;z-index:9999;pointer-events:none;user-select:none;letter-spacing:.04em;opacity:.75}</style>
+
+<script>
+/* ---- 効果音（ゲーム本体と同じ Web Audio。外部ファイル不要） ---- */
+(function(){
+  let AC=null, muted = localStorage.getItem("tg_mute")==="1";
+  function ac(){
+    try{
+      if(!AC) AC = new (window.AudioContext||window.webkitAudioContext)();
+      if(AC.state==="suspended") AC.resume().catch(()=>{});
+    }catch(e){}
+    return AC;
+  }
+  function tn(f,d,type,v,delay,to){
+    const c=ac(); if(!c||muted) return;
+    const t=c.currentTime+(delay||0);
+    const o=c.createOscillator(), g=c.createGain();
+    o.type=type||"sine"; o.frequency.setValueAtTime(f,t);
+    if(to) o.frequency.exponentialRampToValueAtTime(to,t+d);
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(v||.1,t+.012);
+    g.gain.exponentialRampToValueAtTime(.0008,t+d);
+    o.connect(g); g.connect(c.destination);
+    o.start(t); o.stop(t+d+.03);
+  }
+  // ゲームカードにホバー：かすかな光の音
+  const hover = ()=>{ tn(1180,.05,"sine",.035,0); };
+  // ゲームを選ぶ：宝石が鳴るような、余韻のある和音
+  const enter = ()=>{ [659,880,1319].forEach((f,i)=>tn(f,.5,"sine",.075,i*.055)); tn(220,.35,"triangle",.05,0); };
+  // 一般のクリック
+  const click = ()=>{ tn(520,.05,"triangle",.06,0); };
+
+  // ミュート切替ボタン
+  const btn=document.createElement("button");
+  btn.id="mute";
+  btn.setAttribute("aria-label","効果音の切り替え");
+  const paint=()=>{ btn.textContent = muted ? "🔇" : "🔊"; };
+  paint();
+  btn.onclick = (e)=>{ e.preventDefault(); ac(); muted=!muted;
+    localStorage.setItem("tg_mute", muted?"1":"0"); paint(); if(!muted) click(); };
+  document.body.appendChild(btn);
+
+  // ゲームカード
+  document.querySelectorAll("a.game").forEach(a=>{
+    a.addEventListener("mouseenter", ()=>{ ac(); hover(); });
+    a.addEventListener("click", (e)=>{
+      ac(); enter();
+      // 音の余韻を聞かせてから遷移（80msだけ待つ。体感の遅延にはならない）
+      const href=a.getAttribute("href");
+      if(href && !e.metaKey && !e.ctrlKey && e.button===0){
+        e.preventDefault();
+        setTimeout(()=>{ location.href=href; }, 130);
+      }
+    });
+    a.addEventListener("keydown", (e)=>{ if(e.key==="Enter"||e.key===" "){ ac(); enter(); } });
+  });
+  // その他のリンク
+  document.querySelectorAll("a:not(.game)").forEach(a=>{
+    a.addEventListener("click", ()=>{ ac(); click(); });
+  });
+})();
+</script>
 </body>
 </html>

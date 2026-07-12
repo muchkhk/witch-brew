@@ -308,7 +308,7 @@ function npcTurn(){
 
 
 /* ============ オンライン基盤 ============ */
-const VER="1.0";
+const VER="1.1";
 /* --- 手番通知（音 + タブのタイトル点滅）--- */
 let _wasMyTurn=false, _titleT=null, _baseTitle=document.title;
 function notifyTurn(mine){
@@ -1032,7 +1032,7 @@ function helpHTML(){return `<div class="modal" onclick="if(event.target===this){
 render=_guardRender(render);
 render();
 </script><a id="homelink" href="index.html" title="ゲーム一覧へ戻る">🏠 ゲーム一覧</a>
-<div id="verbadge">影の競り v1.0</div>
+<div id="verbadge">影の競り v1.1</div>
 <style>
 #homelink{position:fixed;left:8px;bottom:6px;z-index:9999;
  font:11px/1.5 system-ui,sans-serif;letter-spacing:.04em;text-decoration:none;
