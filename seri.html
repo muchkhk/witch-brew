@@ -109,7 +109,7 @@ async function withRetry(fn,n=1,ms=700){
      ③ 古ければ「?v=新版」という別URLへ飛ぶ → キャッシュが原理的に効かない
    ============================================================ */
 (function(){
-  const PAGE_VER = "1.1";
+  const PAGE_VER = "1.3";
 
   // ① 残存 Service Worker を解除（過去の実験などで残っていると、強制リロードすら効かなくなる）
   if ("serviceWorker" in navigator) {
@@ -353,7 +353,7 @@ function npcTurn(){
 
 
 /* ============ オンライン基盤 ============ */
-const VER="1.1";
+const VER="1.3";
 /* --- 手番通知（音 + タブのタイトル点滅）--- */
 let _wasMyTurn=false, _titleT=null, _baseTitle=document.title;
 function notifyTurn(mine){
@@ -368,6 +368,20 @@ function notifyTurn(mine){
 }
 window.addEventListener("focus",()=>{clearInterval(_titleT);document.title=_baseTitle;});   // ★版。卓を作るときDBに記録し、参加者と食い違ったら警告する
 const ON={room:null,seat:null,uid:null,spec:false,lastSync:0,conn:false,unsub:[],lots:null};
+/* ★名前の検証（1箇所に集約） */
+function getName(){
+  const el=document.getElementById("nm"); if(!el)return "";
+  const v=(el.value||"").replace(/[<>&"'`]/g,"").trim().slice(0,12);
+  return v;
+}
+function saveName(){ const v=getName(); if(v) localStorage.setItem("ks_name",v); return v; }
+/* 名前が空のうちは「卓を作る」「参加する」を押せなくする */
+function chkName(){
+  const ok=getName().length>0;
+  ["btnCreate","btnJoin"].forEach(id=>{const b=document.getElementById(id); if(b)b.disabled=!ok;});
+  const hint=document.getElementById("nmHint");
+  if(hint)hint.style.visibility = ok ? "hidden" : "visible";
+}
 function uid(){let u=localStorage.getItem("ks_uid");if(!u){u="u"+Math.random().toString(36).slice(2,10);localStorage.setItem("ks_uid",u);}return u;}
 function code4(){const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let c="";for(let i=0;i<4;i++)c+=A[rn(A.length)];return c;}
 const rpath=(k)=>"rooms/"+ON.room+(k?"/"+k:"");
@@ -381,6 +395,7 @@ function genLots(nc,rounds){
   return L;
 }
 async function createRoom(name,n){
+  if(!name||!name.trim())return E("名前を入力してください");
   if(!FB_OK)return E("Firebaseが未設定です（ファイル冒頭の FIREBASE_CONFIG を設定してください）");
   setPlayers(n);
   ON.room=code4();ON.uid=uid();ON.seat=0;ON.spec=false;
@@ -389,11 +404,13 @@ async function createRoom(name,n){
   ON.lots=lots; localStorage.setItem(lsKey(),JSON.stringify(lots));
   await withRetry(()=>ref().set({
     meta:{host:ON.uid,phase:"lobby",n:R.P,nc,rounds:R.ROUNDS,money:R.MONEY,t:nowMs(),ver:VER},
-    seats:{0:{uid:ON.uid,name:name||"ホスト",lastSeen:nowMs()}},
+    seats:{0:{uid:ON.uid,name:name,lastSeen:nowMs()}},
   }));
   attach();
 }
 async function joinRoom(name,c){
+  if(!name||!name.trim())return E("名前を入力してください");
+  if(!c||c.trim().length!==4)return E("合言葉を4文字で入力してください");
   if(!FB_OK)return E("Firebaseが未設定です");
   ON.room=c.toUpperCase();ON.uid=uid();ON.spec=false;
   const meta=(await withRetry(()=>ref("meta").get())).val();
@@ -403,7 +420,7 @@ async function joinRoom(name,c){
   const res=await withRetry(()=>ref("seats").transaction(sv=>{
     sv=sv||{};
     for(const k in sv) if(sv[k]&&sv[k].uid===ON.uid){return sv;}      // 再入場
-    for(let i=0;i<meta.n;i++){ if(!sv[i]||!seatAlive(sv[i])){ sv[i]={uid:ON.uid,name:name||("鑑定士"+(i+1)),lastSeen:nowMs()}; return sv; } }
+    for(let i=0;i<meta.n;i++){ if(!sv[i]||!seatAlive(sv[i])){ sv[i]={uid:ON.uid,name:name,lastSeen:nowMs()}; return sv; } }
     return;                                                            // 満席
   }));
   if(!res.committed)return E("満席です（観戦なら入れます）");
@@ -412,6 +429,7 @@ async function joinRoom(name,c){
   attach();
 }
 async function spectate(c){
+  if(!c||c.trim().length!==4)return E("合言葉を4文字で入力してください");
   if(!FB_OK)return E("Firebaseが未設定です");
   ON.room=c.toUpperCase();ON.uid=uid();ON.seat=null;ON.spec=true;
   const meta=(await withRetry(()=>ref("meta").get())).val();
@@ -628,8 +646,32 @@ function onlineHTML(){
 
   // 行動
   if(ON.spec){
-    h+=`<div class="card"><div class="kv">👁 観戦中 ―― <b>全員の目と、すべての面が見えています</b>（下の表）。競りには加わりません。</div>
-      ${rev?`<div class="row" style="justify-content:center;margin-top:8px"><button class="pri" onclick="oNext()">→ 次の原石へ</button></div>`:''}</div>`;
+    // ★観戦の本体は「異常が一目で分かる」こと。接続状態が無いと、
+    //   「止まっている」のか「切断している」のか判別できず、デバッグにならない。
+    h+=`<div class="card"><div class="kv" style="margin-bottom:8px">👁 <b>観戦中</b> ―― 競りには加わりません</div>
+     <table><tr><th>席</th><th>接続</th><th>目</th><th>資金</th><th>この石で</th></tr>`;
+    for(let i=0;i<n;i++){
+      const sv=DB.seats[i], alive=seatAlive(sv);
+      const age=sv&&sv.lastSeen?Math.round((nowMs()-sv.lastSeen)/1000):null;
+      const pv=DB.priv[i];
+      const st = !sv ? '<span class="kv">空席</span>'
+        : alive ? `<span class="pos">🟢 在席</span> <span class="kv">${age}秒前</span>`
+                : `<span class="neg">🔴 切断</span> <span class="kv">${age!=null?age+"秒前":"?"}</span>`;
+      const turn = (!rev && g.cur===i && live.includes(i)) ? ' <b style="color:var(--gold2)">◀ 手番</b>' : '';
+      const stt = !live.includes(i)
+        ? (tops[i]>0?`<span class="neg">✕ ${tops[i]}で降り</span>`:`<span class="neg">✕ 即降り</span>`)
+        : (tops[i]>0?`追 ${tops[i]}`:'<span class="kv">—</span>');
+      h+=`<tr><td><span class="pill" style="background:${CC[i]}">${esc(sv?sv.name:"席"+(i+1))}</span>${turn}</td>
+       <td>${st}</td>
+       <td><b style="color:var(--gold2)">${pv&&pv.lens!=null?R.COMPS[pv.lens].e+R.COMPS[pv.lens].f:'<span class="kv">?</span>'}</b></td>
+       <td>💰${DB.money[i]||0}</td><td>${stt}</td></tr>`;
+    }
+    h+=`</table>
+     <div class="kv" style="margin-top:8px">進行: <b>${m.phase==="lobby"?"ロビー":g.phase==="auction"?"競り中":g.phase==="hammer"?"槌の解決中":g.phase==="reveal"?"開示中":"終了"}</b>
+      ・ 原石 ${r+1}/${m.rounds} ・ 現在価格 ${g.price} ・ 残り ${live.length}人</div>
+     ${g.phase==="hammer"?`<div class="hint" style="margin-top:6px">⏳ 槌の解決はホストの端末が行います。ホストが切断していると、ここで止まります。</div>`:''}
+     ${rev?`<div class="row" style="justify-content:center;margin-top:10px"><button class="pri" onclick="oNext()">→ 次の原石へ</button></div>`:''}
+    </div>`;
   } else if(rev){
     h+=`<div class="card"><div class="row" style="justify-content:center">
       <button class="pri" onclick="oNext()">→ 次の原石へ</button></div>
@@ -802,7 +844,7 @@ function render(){
     notifyTurn(!!(g&&g.phase==="auction"&&g.cur===ON.seat&&!ON.spec&&DB.meta&&DB.meta.phase==="playing"));
     a.innerHTML=h+onlineHTML(); syncModal(); return;
   }
-  if(!S){a.innerHTML=home();syncModal();return;}
+  if(!S){a.innerHTML=home();syncModal();chkName();return;}
   let h=`<h1>影の競り</h1><div class="sub">盲目の宝石商たち ― あいつが高く入れた。あいつには、何が見えている？</div>`;
   if(err)h+=`<div class="err">⚠️ ${esc(err)}</div>`;
   h+=`<div class="row" style="margin-bottom:10px">
@@ -972,18 +1014,20 @@ function home(){return `<div class="hero">
  ―― 追うか、降りるか。</b></p>
  <div class="kv" style="margin-top:16px;margin-bottom:6px"><b style="color:var(--gold2)">🌐 オンラインで遊ぶ</b>（仲間と）</div>
  <div class="row" style="margin-bottom:6px">
-  <input id="nm" placeholder="あなたの名前" value="${(()=>{let v=localStorage.getItem('ks_name')||'';if(/^[ぁ-んァ-ンー]$/.test(v)){v='';localStorage.removeItem('ks_name');}return v.replace(/\"/g,'');})()}"
-   style="background:var(--bg3);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:9px 12px;font:inherit;width:150px">
+  <input id="nm" placeholder="あなたの名前（必須）" maxlength="12" oninput="chkName()"
+   value="${(()=>{let v=localStorage.getItem('ks_name')||'';if(/^[ぁ-んァ-ンー]$/.test(v)){v='';localStorage.removeItem('ks_name');}return v.replace(/[<>&\"'\`]/g,'');})()}"
+   style="background:var(--bg3);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:9px 12px;font:inherit;width:160px">
   <select id="np" style="background:var(--bg3);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:9px">
    ${[2,3,4,5,6].map(n=>`<option value="${n}" ${n===4?'selected':''}>${n}人卓（${SETUP[n].NC}面/石${SETUP[n].ROUNDS}）</option>`).join("")}
   </select>
-  <button class="pri" onclick="const v=document.getElementById('nm').value;localStorage.setItem('ks_name',v);createRoom(v,+document.getElementById('np').value)">🚪 卓を作る</button>
+  <button id="btnCreate" class="pri" disabled onclick="const v=saveName();createRoom(v,+document.getElementById('np').value)">🚪 卓を作る</button>
  </div>
+ <div id="nmHint" class="kv" style="color:var(--gold2);margin-bottom:6px">↑ <b>まず、あなたの名前を入れてください</b>（卓の仲間に表示されます）</div>
  <div class="row">
   <input id="cd" placeholder="合言葉（4文字）" maxlength="4"
    style="background:var(--bg3);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:9px 12px;font:inherit;width:130px;text-transform:uppercase">
-  <button onclick="const v=document.getElementById('nm').value;localStorage.setItem('ks_name',v);joinRoom(v,document.getElementById('cd').value)">参加する</button>
-  <button onclick="spectate(document.getElementById('cd').value)">👁 観戦する</button>
+  <button id="btnJoin" disabled onclick="const v=saveName();joinRoom(v,document.getElementById('cd').value)">参加する</button>
+  <button onclick="spectate(document.getElementById('cd').value)">👁 観戦する <span class="kv">（名前不要）</span></button>
  </div>
  ${FB_OK?'':'<div class="kv" style="margin-top:6px;color:var(--bad)">⚠️ Firebase未設定 ― ファイル冒頭の FIREBASE_CONFIG を設定してください（ソロは設定なしで動きます）</div>'}
 
@@ -1077,7 +1121,7 @@ function helpHTML(){return `<div class="modal" onclick="if(event.target===this){
 render=_guardRender(render);
 render();
 </script><a id="homelink" href="index.html" title="ゲーム一覧へ戻る">🏠 ゲーム一覧</a>
-<div id="verbadge">影の競り v1.1</div>
+<div id="verbadge">影の競り v1.3</div>
 <style>
 #homelink{position:fixed;left:8px;bottom:6px;z-index:9999;
  font:11px/1.5 system-ui,sans-serif;letter-spacing:.04em;text-decoration:none;
