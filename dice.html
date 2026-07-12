@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>フリーサイコロ v0.2 ― 骨だけ</title>
+<style>
+:root{--bg:#12141a;--bg2:#1a1e26;--bg3:#232832;--line:#39404f;--ink:#eef1f7;--muted:#949cad;
+ --gold:#e0b352;--gold2:#f5d99a;--good:#7fd6a0;--bad:#e88b8b;--blank:#5a6070;
+ --c0:#6cb6e8;--c1:#e88b8b;--c2:#8fd98f;--c3:#d5a0e8;
+ --ui:"Yu Gothic","Hiragino Kaku Gothic ProN",system-ui,sans-serif;--ttl:"Yu Mincho","Hiragino Mincho ProN",serif}
+*{box-sizing:border-box}html{-webkit-tap-highlight-color:transparent}
+body{margin:0 auto;max-width:1000px;background:var(--bg);color:var(--ink);font-family:var(--ui);padding:14px 12px 70px;line-height:1.6}
+h1{font-family:var(--ttl);letter-spacing:.1em;font-size:22px;margin:6px 0 2px}
+.sub{color:var(--muted);font-size:12px;margin-bottom:12px}
+button{background:var(--bg3);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:14px;transition:.12s}
+button:hover:not(:disabled){border-color:var(--gold);transform:translateY(-1px);background:#2f3542}
+button:active:not(:disabled){transform:scale(.98)}
+button:disabled{opacity:.3;cursor:default}
+button.pri{background:linear-gradient(180deg,#3d4657,#2b3140);border-color:var(--gold);font-size:16px;padding:11px 22px}
+button.danger{border-color:var(--bad)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.card h2{font-size:13px;color:var(--muted);font-weight:400;margin:0 0 10px;letter-spacing:.08em}
+
+/* ---- ダイス列（公開された自伝） ---- */
+.dice{display:flex;gap:10px;flex-wrap:wrap}
+.player{flex:1 1 210px;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg)}
+.player.turn{border-color:var(--gold);box-shadow:0 0 14px rgba(224,179,82,.25)}
+.pname{font-size:13px;font-weight:700;margin-bottom:6px;display:flex;justify-content:space-between;align-items:baseline}
+.pname .sc{font-family:var(--ttl);font-size:18px;color:var(--gold2)}
+.die{display:flex;gap:5px}
+.face{width:100%;aspect-ratio:1;border:1px solid var(--line);border-radius:7px;display:grid;place-items:center;
+ font-family:var(--ttl);font-size:20px;background:var(--bg2);position:relative}
+.face.blank{color:var(--blank);background:repeating-linear-gradient(45deg,#191d25,#191d25 4px,#1d222b 4px,#1d222b 8px)}
+.face.blank::after{content:"·";font-size:22px}
+.face.eng{color:var(--ink)}
+.face.roll{border-color:var(--gold);box-shadow:0 0 0 2px rgba(224,179,82,.4) inset}
+.face.pos{font-size:9px;color:var(--muted);position:absolute;top:2px;left:3px}
+@keyframes carve{0%{transform:scale(1);box-shadow:0 0 0 rgba(224,179,82,0)}
+ 30%{transform:scale(1.35);box-shadow:0 0 20px rgba(224,179,82,.9);color:var(--gold2)}
+ 100%{transform:scale(1);box-shadow:0 0 0 rgba(224,179,82,0)}}
+.face.carved{animation:carve .9s ease-out}
+.blankcount{font-size:11px;color:var(--muted);margin-top:5px}
+
+/* ---- 注文 ---- */
+.orders{display:flex;gap:10px;flex-wrap:wrap}
+.order{flex:1 1 150px;border:1px solid var(--line);border-radius:10px;padding:11px;background:var(--bg)}
+.order.rep{border-left:3px solid #6cb6e8}
+.order.var{border-left:3px solid #d5a0e8}
+.order.preview{opacity:.45;border-style:dashed}
+.otype{font-size:10px;color:var(--muted);letter-spacing:.1em}
+.oreq{font-family:var(--ttl);font-size:17px;margin:3px 0}
+.oscore{font-size:11px;color:var(--gold2)}
+.oprog{margin-top:8px;font-size:11px;display:flex;flex-direction:column;gap:2px}
+.oprog .pr{display:flex;justify-content:space-between}
+.oprog .pv{color:var(--muted)}
+.oprog .pv.hit{color:var(--good)}
+
+/* ---- ロール & 操作 ---- */
+.rollbox{text-align:center;padding:6px 0}
+.dnums{display:flex;gap:14px;justify-content:center;margin:6px 0}
+.dnum{width:56px;height:56px;border-radius:12px;border:1px solid var(--gold);background:linear-gradient(160deg,#2a3038,#1c212b);
+ display:grid;place-items:center;font-family:var(--ttl);font-size:30px;color:var(--gold2)}
+.dnum .lab{position:absolute;font-size:9px;color:var(--muted);margin-top:-38px}
+.choices{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.choice{flex:1 1 200px;max-width:320px;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg);cursor:pointer;text-align:left;transition:.12s}
+.choice:hover{border-color:var(--gold);background:#22272f}
+.choice .ct{font-size:12px;color:var(--muted)}
+.choice .cm{font-family:var(--ttl);font-size:16px;margin-top:3px}
+.choice.blankc .cm{color:var(--gold2)}
+.vpick{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+.vpick button{width:52px;height:52px;font-family:var(--ttl);font-size:24px;padding:0}
+.carveconfirm{border:1px solid var(--gold);background:#241f12;border-radius:10px;padding:14px;text-align:center;margin-top:8px}
+.carveconfirm .big{font-family:var(--ttl);font-size:20px;color:var(--gold2)}
+.assignbtn{display:block;width:100%;text-align:left;margin-top:6px}
+.hint{font-size:12px;color:var(--gold2);background:#2a2415;border:1px solid #4a3d1c;border-radius:8px;padding:8px 11px;margin-top:8px}
+.fact{font-size:12px;color:var(--muted)}
+.fact b{color:var(--ink)}
+
+/* ---- 履歴・ログ ---- */
+.log{max-height:180px;overflow-y:auto;font-size:12px;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px}
+.log div{padding:2px 0;border-bottom:1px solid #22252d}
+.log .rh{color:var(--gold2);font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--muted);font-weight:400;font-size:11px}
+.badge{position:fixed;right:8px;bottom:6px;font-size:10px;color:var(--muted);opacity:.6}
+.tag{display:inline-block;font-size:10px;padding:1px 7px;border-radius:9px;border:1px solid var(--line);margin-left:6px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<h1>フリーサイコロ <span style="font-size:13px;color:var(--muted)">v0.2 ― 骨だけ</span></h1>
+<div class="sub">6面すべて白紙のダイス。刻んだ数字は、その面に永遠に残る。 ／ ソロ専用・オフライン・NPC3体</div>
+
+<div id="app"></div>
+
+<div class="badge">dice v0.2 (bones)</div>
+
+<!-- ============================================================= -->
+<!-- ブロック0: ゲームエンジン（純ロジック・DOM非依存）             -->
+<!-- node で単体抽出すると末尾ガードでヘッドレス100戦を自動実行する -->
+<!-- ============================================================= -->
+<script>
+// ---- 定数 ----
+var KINDS = {GREEDY:'強欲', PRESERVE:'温存', SPECIAL:'専門家', BAL:'均衡'};
+var _uid = 0;
+function uid(){ return ++_uid; }
+
+// ---- デッキ生成: 24枚 REP:VAR = 1:1 ----
+function buildDeck(rnd){
+  var defs = [];
+  for(var i=0;i<12;i++){
+    var v = 1 + Math.floor(rnd()*6);
+    var k = (rnd()<0.5) ? 3 : 4;
+    defs.push({type:'REP', v:v, k:k, score:k});
+  }
+  for(var j=0;j<12;j++){
+    defs.push({type:'VAR', v:null, k:3, score:3});
+  }
+  // Fisher-Yates
+  for(var a=defs.length-1;a>0;a--){
+    var b = Math.floor(rnd()*(a+1));
+    var t=defs[a]; defs[a]=defs[b]; defs[b]=t;
+  }
+  return defs;
+}
+function instantiate(def){
+  return {id:uid(), type:def.type, v:def.v, k:def.k, score:def.score, progress:{}};
+}
+
+// ---- 新規ゲーム ----
+// kinds: 長さ4の配列。人間UIでは players[0].isHuman=true（headlessでは全員NPC）
+function newGame(kinds, rnd){
+  rnd = rnd || Math.random;
+  _uid = 0;
+  var deck = buildDeck(rnd);
+  var players = [];
+  for(var i=0;i<4;i++){
+    players.push({
+      id:i, name:'', kind:kinds[i], isHuman:false,
+      die:[null,null,null,null,null,null], // 面0-5、null=白紙
+      score:0, won:[], engravedRounds:[]
+    });
+  }
+  var S = {
+    round:1, rnd:rnd, players:players,
+    table:[instantiate(deck.pop()), instantiate(deck.pop()), instantiate(deck.pop())],
+    preview:[instantiate(deck.pop()), instantiate(deck.pop())],
+    deck:deck, log:[], tieRounds:[], deckDry:false
+  };
+  return S;
+}
+
+// ---- 進捗ヘルパ ----
+function progOf(o,pid){ return o.type==='REP' ? (o.progress[pid]||0) : (o.progress[pid]||[]); }
+function advances(o,val,pid){
+  if(o.type==='REP') return (val===o.v) && ((o.progress[pid]||0) < o.k);
+  var arr = o.progress[pid]||[];
+  return (arr.indexOf(val)<0) && (arr.length < 3);
+}
+function applyProgress(o,val,pid){
+  if(o.type==='REP'){ o.progress[pid]=(o.progress[pid]||0)+1; }
+  else { (o.progress[pid] = o.progress[pid]||[]).push(val); }
+}
+function isComplete(o,pid){
+  if(o.type==='REP') return (o.progress[pid]||0) >= o.k;
+  return (o.progress[pid]||[]).length >= 3;
+}
+function blanks(p){ var n=0; for(var i=0;i<6;i++) if(p.die[i]===null) n++; return n; }
+
+// ---- 場の「最も需要が多い数字」（専門家の specialty / 需要バイアス） ----
+function demandMap(S){
+  var d = {1:0,2:0,3:0,4:0,5:0,6:0};
+  for(var i=0;i<S.table.length;i++){
+    var o = S.table[i];
+    if(o.type==='REP') d[o.v] += o.k; // REP のみが特定数字を要求する
+  }
+  return d;
+}
+function specialty(S){
+  var d = demandMap(S), best=1, bv=-1;
+  for(var v=1;v<=6;v++){ if(d[v]>bv){ bv=d[v]; best=v; } }
+  return best; // 需要ゼロなら 1（暫定・報告参照）
+}
+
+// ---- 合法手の列挙 ----
+// idxs: この手番で使える面番号（0-5、重複除去済み・1つか2つ）
+// 返り: {idx,value,engraves,orderId|null, complete, progress}
+function legalMoves(S,p,idxs){
+  var moves=[];
+  for(var i=0;i<idxs.length;i++){
+    var idx = idxs[i];
+    if(p.die[idx]!==null){
+      pushAssignments(S,p,idx,p.die[idx],false,moves);
+    } else {
+      for(var v=1;v<=6;v++) pushAssignments(S,p,idx,v,true,moves);
+    }
+  }
+  return moves;
+}
+function pushAssignments(S,p,idx,val,engraves,out){
+  var any=false;
+  for(var i=0;i<S.table.length;i++){
+    var o = S.table[i];
+    if(advances(o,val,p.id)){
+      any=true;
+      var willComplete = (o.type==='REP') ? ((o.progress[p.id]||0)+1 >= o.k)
+                                          : ((o.progress[p.id]||[]).length+1 >= 3);
+      out.push({idx:idx, value:val, engraves:engraves, orderId:o.id,
+                complete:willComplete, progress:true, score:o.score});
+    }
+  }
+  // 「どの注文にも割り当てない」も常に合法
+  out.push({idx:idx, value:val, engraves:engraves, orderId:null, complete:false, progress:false, score:0});
+}
+
+// ---- NPC 決定（素直な貪欲法・性格でゲートを変える） ----
+// ※思考は返さない。手だけ返す。UI側はこの結果を「起きた事実」として表示する
+function npcDecide(S,p,idxs){
+  var moves = legalMoves(S,p,idxs);
+  var spec = specialty(S);
+  var demand = demandMap(S);
+  var allowed = moves.filter(function(m){ return engraveGate(p.kind, m, spec); });
+  if(allowed.length===0) allowed = moves; // 強制手番（両面白紙で条件を満たせない）
+  allowed.sort(function(a,b){ return moveScore(p.kind,b,demand) - moveScore(p.kind,a,demand); });
+  return allowed[0];
+}
+// 刻む手が許されるか（性格の核）
+function engraveGate(kind, m, spec){
+  if(!m.engraves) return true;             // 既刻の面を使う手は常にOK
+  if(kind===KINDS.GREEDY)   return m.progress;          // 進むなら迷わず刻む
+  if(kind===KINDS.PRESERVE) return m.complete;          // 達成できるときしか刻まない
+  if(kind===KINDS.SPECIAL)  return m.value===spec;      // 最需要の数字しか刻まない
+  return m.progress;                                     // 均衡: 進むなら刻む
+}
+function moveScore(kind, m, demand){
+  var s = 0;
+  if(m.complete) s += 1000 + m.score*10;
+  else if(m.progress) s += 100 + m.score;
+  if(m.engraves){
+    // 刻みは基本的に損（自由を失う）。性格でペナルティを変える
+    var pen = (kind===KINDS.PRESERVE)?40 : (kind===KINDS.SPECIAL)?8 : 3;
+    s -= pen;
+    s += demand[m.value]*0.5; // 刻むなら需要のある数字を
+  }
+  return s;
+}
+
+// ---- 1ラウンド解決 ----
+// decisions: 各プレイヤーの {playerId,idx,value,engraves,orderId}
+function resolveRound(S, decisions){
+  var events = {round:S.round, produced:[], carved:[], completed:[], tie:null};
+  var i,d,p,o;
+  // 1) 刻む（＋記録）
+  for(i=0;i<decisions.length;i++){
+    d=decisions[i]; p=S.players[d.playerId];
+    if(d.engraves){
+      p.die[d.idx]=d.value;
+      p.engravedRounds.push(S.round);
+      events.carved.push({pid:p.id, idx:d.idx, value:d.value});
+    }
+    events.produced.push({pid:p.id, idx:d.idx, value:d.value, engraved:!!d.engraves, orderId:d.orderId});
+  }
+  // 2) 進捗を反映し、達成者を注文ごとに集める
+  var completions = {}; // orderId -> [pid,...]
+  for(i=0;i<decisions.length;i++){
+    d=decisions[i];
+    if(d.orderId==null) continue;
+    o = tableOrderById(S,d.orderId);
+    p = S.players[d.playerId];
+    if(o && advances(o,d.value,p.id)){
+      applyProgress(o,d.value,p.id);
+      if(isComplete(o,p.id)){ (completions[o.id]=completions[o.id]||[]).push(p.id); }
+    }
+  }
+  // 3) BLANK 規則で勝者を決める
+  var removed=[], anyTie=false;
+  for(var oid in completions){
+    o = tableOrderById(S, Number(oid));
+    if(!o) continue;
+    var conts = completions[oid], winner;
+    if(conts.length===1){ winner=conts[0]; }
+    else {
+      anyTie=true;
+      var maxB=-1, k;
+      for(k=0;k<conts.length;k++){ maxB=Math.max(maxB, blanks(S.players[conts[k]])); }
+      var top = conts.filter(function(id){ return blanks(S.players[id])===maxB; });
+      winner = top[Math.floor(S.rnd()*top.length)];
+      events.completed.push({orderId:o.id, order:snapshotOrder(o), winner:winner, contenders:conts.slice(), tie:true, blanks:maxB});
+    }
+    if(conts.length===1){
+      events.completed.push({orderId:o.id, order:snapshotOrder(o), winner:winner, contenders:conts.slice(), tie:false});
+    }
+    var w = S.players[winner];
+    w.score += o.score;
+    w.won.push({type:o.type, v:o.v, k:o.k, score:o.score, wonRound:S.round});
+    removed.push(o.id);
+  }
+  if(anyTie){ S.tieRounds.push(S.round); events.tie=true; }
+  // 4) 完了注文を場から除去し、補充
+  for(i=0;i<removed.length;i++) removeAndRefill(S, removed[i]);
+  S.log.push(events);
+  return events;
+}
+function tableOrderById(S,id){ for(var i=0;i<S.table.length;i++) if(S.table[i].id===id) return S.table[i]; return null; }
+function snapshotOrder(o){ return {type:o.type, v:o.v, k:o.k, score:o.score}; }
+function removeAndRefill(S, oid){
+  S.table = S.table.filter(function(o){ return o.id!==oid; });
+  while(S.table.length<3 && S.preview.length>0){ S.table.push(S.preview.shift()); }
+  while(S.preview.length<2 && S.deck.length>0){ S.preview.push(instantiate(S.deck.pop())); }
+  if(S.table.length<3 && S.deck.length===0 && S.preview.length===0){ S.deckDry=true; }
+}
+
+// ---- ロール ----
+function rollFaces(S){
+  var a = Math.floor(S.rnd()*6), b = Math.floor(S.rnd()*6);
+  return [a,b];
+}
+function distinctIdx(faces){ return faces[0]===faces[1] ? [faces[0]] : [faces[0], faces[1]]; }
+
+// =============================================================
+// ヘッドレス自己検証（node で本ブロックを単体実行したときだけ走る）
+// =============================================================
+function playAuto(S){
+  for(var r=1;r<=12;r++){
+    S.round = r;
+    var faces = rollFaces(S);
+    var idxs = distinctIdx(faces);
+    var decisions=[];
+    for(var i=0;i<S.players.length;i++){
+      var mv = npcDecide(S, S.players[i], idxs);
+      decisions.push({playerId:i, idx:mv.idx, value:mv.value, engraves:mv.engraves, orderId:mv.orderId});
+    }
+    resolveRound(S, decisions);
+  }
+  return S;
+}
+function headless(n){
+  var complete=0, negScore=0, scoreSum=0, tieTotal=0, deckDry=0, roundsOk=0;
+  var kinds=[KINDS.GREEDY, KINDS.PRESERVE, KINDS.SPECIAL, KINDS.BAL];
+  for(var g=0; g<n; g++){
+    var S = newGame(kinds, Math.random);
+    playAuto(S);
+    if(S.round===12 && S.log.length===12) complete++;
+    var okAll=true;
+    for(var i=0;i<4;i++){
+      scoreSum += S.players[i].score;
+      if(S.players[i].score < 0){ negScore++; okAll=false; }
+    }
+    tieTotal += S.tieRounds.length;
+    if(S.deckDry) deckDry++;
+  }
+  var out = {
+    games:n, completed:complete, completeRate:(complete/n*100).toFixed(1)+'%',
+    avgScorePerPlayer:(scoreSum/(n*4)).toFixed(2),
+    avgTiesPerGame:(tieTotal/n).toFixed(2),
+    negativeScores:negScore, deckDryGames:deckDry
+  };
+  return out;
+}
+
+if(typeof window==='undefined'){
+  // node --check / node dice_block0.js 実行時
+  var res = headless(100);
+  console.log(JSON.stringify(res,null,2));
+}
+</script>
+
+<!-- ============================================================= -->
+<!-- ブロック1: UI（DOM依存）。エンジン関数はグローバル共有         -->
+<!-- ============================================================= -->
+<script>
+var S=null, UI=null;
+var PCOLOR=['var(--c0)','var(--c1)','var(--c2)','var(--c3)'];
+var app = document.getElementById('app');
+
+function startGame(){
+  // 席0=人間、席1-3=NPC（強欲/温存/専門家）
+  S = newGame([KINDS.GREEDY, KINDS.GREEDY, KINDS.PRESERVE, KINDS.SPECIAL], Math.random);
+  S.players[0].isHuman = true;
+  S.players[0].name = 'あなた';
+  S.players[0].kind = '―';
+  S.players[1].name = 'NPC・強欲';
+  S.players[2].name = 'NPC・温存';
+  S.players[3].name = 'NPC・専門家';
+  UI = {phase:'idle', faces:null, idxs:null, sel:null, carved:[]};
+  render();
+}
+
+// ================= 描画 =================
+function render(){
+  if(!S){ app.innerHTML = '<div class="card" style="text-align:center"><button class="pri" onclick="startGame()">ゲーム開始（12ラウンド）</button></div>'; return; }
+  var h = '';
+  h += renderStatus();
+  h += renderDice();
+  h += renderOrders();
+  h += renderControl();
+  h += renderHistory();
+  app.innerHTML = h;
+  // 刻み演出
+  if(UI.carved && UI.carved.length){
+    UI.carved.forEach(function(c){
+      var el = document.getElementById('face-'+c.pid+'-'+c.idx);
+      if(el) el.classList.add('carved');
+    });
+    UI.carved=[];
+  }
+}
+
+function renderStatus(){
+  return '<div class="card" style="display:flex;justify-content:space-between;align-items:center">'+
+    '<div style="font-family:var(--ttl);font-size:18px">ラウンド <b style="color:var(--gold2)">'+S.round+'</b> / 12</div>'+
+    '<div class="fact">残デッキ '+S.deck.length+'枚</div></div>';
+}
+
+function renderDice(){
+  var h = '<div class="card"><h2>公開された自伝 ― 全員のサイコロ</h2><div class="dice">';
+  for(var i=0;i<4;i++){
+    var p=S.players[i];
+    var turn = (UI.phase!=='idle' && UI.phase!=='resolved' && UI.phase!=='end' && p.isHuman) ? ' turn':'';
+    h += '<div class="player'+turn+'">';
+    h += '<div class="pname" style="color:'+PCOLOR[i]+'"><span>'+p.name+'</span><span class="sc">'+p.score+'点</span></div>';
+    h += '<div class="die">';
+    for(var f=0;f<6;f++){
+      var rolled = UI.idxs && UI.idxs.indexOf(f)>=0 && (UI.phase==='rolled'||UI.phase==='engrave'||UI.phase==='assign');
+      var cls = 'face '+(p.die[f]===null?'blank':'eng')+(rolled?' roll':'');
+      var content = p.die[f]===null ? '' : p.die[f];
+      h += '<div class="'+cls+'" id="face-'+i+'-'+f+'"><span class="pos">'+(f+1)+'</span>'+content+'</div>';
+    }
+    h += '</div><div class="blankcount">白紙 '+blanks(p)+' / 6</div></div>';
+  }
+  h += '</div></div>';
+  return h;
+}
+
+function orderReq(o){
+  return o.type==='REP' ? ('同じ「'+o.v+'」を '+o.k+'個') : '相異なる 3種';
+}
+function progText(o,pid){
+  if(o.type==='REP'){ var n=o.progress[pid]||0; return n+' / '+o.k; }
+  var arr=o.progress[pid]||[]; return (arr.length?('{'+arr.join(',')+'}'):'{}')+' '+arr.length+'/3';
+}
+function renderOrders(){
+  var h='<div class="card"><h2>共有の注文 ― 場に3枚（早取り）／ 予告2枚</h2><div class="orders">';
+  for(var i=0;i<S.table.length;i++) h += orderCard(S.table[i], false);
+  for(var j=0;j<S.preview.length;j++) h += orderCard(S.preview[j], true);
+  h += '</div></div>';
+  return h;
+}
+function orderCard(o, preview){
+  var cls = 'order '+(o.type==='REP'?'rep':'var')+(preview?' preview':'');
+  var h = '<div class="'+cls+'">';
+  h += '<div class="otype">'+(o.type==='REP'?'REP':'VAR')+(preview?' ・予告':'')+'</div>';
+  h += '<div class="oreq">'+orderReq(o)+'</div>';
+  h += '<div class="oscore">得点 '+o.score+'</div>';
+  if(!preview){
+    h += '<div class="oprog">';
+    for(var i=0;i<4;i++){
+      var p=S.players[i];
+      var done = isComplete(o,p.id);
+      h += '<div class="pr"><span style="color:'+PCOLOR[i]+'">'+shortName(p)+'</span>'+
+           '<span class="pv'+(done?' hit':'')+'">'+progText(o,p.id)+'</span></div>';
+    }
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+function shortName(p){ return p.isHuman?'あなた':p.name.replace('NPC・',''); }
+
+// ================= 操作パネル（人間手番） =================
+function renderControl(){
+  var h='<div class="card">';
+  if(UI.phase==='idle'){
+    h += '<div class="rollbox"><button class="pri" onclick="doRoll()">R'+S.round+' ― 共通ダイスを振る</button></div>';
+  } else if(UI.phase==='rolled'){
+    h += renderRollNums();
+    h += '<div class="hint">2つの面のうち、どちらを使う？　白紙を選ぶと、その面に数字を「永久に」刻む。</div>';
+    h += '<div class="choices">'+ faceChoices() +'</div>';
+  } else if(UI.phase==='engrave'){
+    h += renderRollNums();
+    h += renderEngrave();
+  } else if(UI.phase==='assign'){
+    h += renderRollNums();
+    h += renderAssign();
+  } else if(UI.phase==='resolved'){
+    h += renderResolved();
+  } else if(UI.phase==='end'){
+    h += renderEnd();
+  }
+  h += '</div>';
+  return h;
+}
+function renderRollNums(){
+  var f=UI.faces;
+  var h='<div class="rollbox"><div class="fact">出た面番号</div><div class="dnums">';
+  h += '<div class="dnum">'+(f[0]+1)+'</div>';
+  if(f[0]!==f[1]) h += '<div class="dnum">'+(f[1]+1)+'</div>';
+  else h += '<div class="fact" style="align-self:center">（同じ面 ― 選択肢は1つ）</div>';
+  h += '</div></div>';
+  return h;
+}
+function faceChoices(){
+  var p=S.players[0], h='';
+  UI.idxs.forEach(function(idx){
+    var eng = p.die[idx]!==null;
+    if(eng){
+      h += '<div class="choice" onclick="chooseFace('+idx+')">'+
+           '<div class="ct">面 '+(idx+1)+'（刻み済み）</div>'+
+           '<div class="cm">→ <b>'+p.die[idx]+'</b> を生産</div></div>';
+    } else {
+      h += '<div class="choice blankc" onclick="chooseFace('+idx+')">'+
+           '<div class="ct">面 '+(idx+1)+'（白紙）</div>'+
+           '<div class="cm">→ 数字を刻んで生産</div></div>';
+    }
+  });
+  return h;
+}
+
+// 白紙選択 → 数字を刻む（核の瞬間）
+function renderEngrave(){
+  var idx=UI.sel.idx;
+  var h='<div class="hint">面 '+(idx+1)+' は白紙。ここに刻む数字は、<b>今後このゲームの間ずっと固定</b>される。</div>';
+  if(UI.sel.value==null){
+    h += '<div class="fact" style="text-align:center;margin-top:6px">刻む数字を選ぶ：</div>';
+    h += '<div class="vpick">';
+    for(var v=1;v<=6;v++) h += '<button onclick="pickValue('+v+')">'+v+'</button>';
+    h += '</div>';
+    h += '<div style="text-align:center;margin-top:8px"><button onclick="backToFace()">← 面を選び直す</button></div>';
+  } else {
+    // 確定前プレビュー（事実のみ。点数は出さない ― §6-10）
+    var v=UI.sel.value;
+    h += '<div class="carveconfirm">';
+    h += '<div class="fact">面 '+(idx+1)+' に</div>';
+    h += '<div class="big">'+v+'</div>';
+    h += '<div class="fact">を刻み、<b>'+v+'</b> を生産する。この面は二度と白紙に戻らない。</div>';
+    h += '<div class="row" style="justify-content:center;margin-top:10px">';
+    h += '<button class="pri danger" onclick="confirmCarve()">刻む</button>';
+    h += '<button onclick="pickValueBack()">選び直す</button>';
+    h += '</div></div>';
+  }
+  return h;
+}
+
+// 割り当てフェーズ
+function renderAssign(){
+  var p=S.players[0], val=UI.sel.value, idx=UI.sel.idx;
+  var h='';
+  if(UI.sel.engraves){
+    h += '<div class="hint">面 '+(idx+1)+' に <b>'+val+'</b> を刻んだ。生産した数字を、どの注文に割り当てる？</div>';
+  } else {
+    h += '<div class="hint">面 '+(idx+1)+' から <b>'+val+'</b> を生産。どの注文に割り当てる？</div>';
+  }
+  var found=false;
+  for(var i=0;i<S.table.length;i++){
+    var o=S.table[i];
+    if(advances(o,val,p.id)){
+      found=true;
+      var after = o.type==='REP' ? ((o.progress[p.id]||0)+1)+' / '+o.k
+                                 : (((o.progress[p.id]||[]).length+1)+' / 3');
+      var willDone = o.type==='REP' ? ((o.progress[p.id]||0)+1>=o.k) : ((o.progress[p.id]||[]).length+1>=3);
+      h += '<button class="assignbtn" onclick="chooseAssign('+o.id+')">'+
+           '注文（'+orderReq(o)+'）: <b>'+progText(o,p.id)+' → '+after+'</b>'+
+           (willDone?' <span class="tag">達成</span>':'')+'</button>';
+    }
+  }
+  if(!found) h += '<div class="fact" style="margin-top:6px">この数字は、今どの注文も進めない。</div>';
+  h += '<button class="assignbtn" onclick="chooseAssign(null)" style="border-color:var(--line)">どの注文にも割り当てない</button>';
+  return h;
+}
+
+// ================= 状態遷移（人間手番） =================
+function doRoll(){
+  UI.faces = rollFaces(S);
+  UI.idxs = distinctIdx(UI.faces);
+  UI.phase = 'rolled';
+  render();
+}
+function chooseFace(idx){
+  var p=S.players[0];
+  if(p.die[idx]!==null){
+    UI.sel = {idx:idx, value:p.die[idx], engraves:false};
+    UI.phase='assign';
+  } else {
+    UI.sel = {idx:idx, value:null, engraves:true};
+    UI.phase='engrave';
+  }
+  render();
+}
+function backToFace(){ UI.sel=null; UI.phase='rolled'; render(); }
+function pickValue(v){ UI.sel.value=v; render(); }
+function pickValueBack(){ UI.sel.value=null; render(); }
+function confirmCarve(){ UI.phase='assign'; render(); } // 実刻みは resolveRound 内で発生
+function chooseAssign(orderId){
+  // 人間の決定を確定 → NPC決定（隠す）→ 一括解決
+  var human = {playerId:0, idx:UI.sel.idx, value:UI.sel.value, engraves:UI.sel.engraves, orderId:orderId};
+  var decisions=[human];
+  for(var i=1;i<4;i++){
+    var mv = npcDecide(S, S.players[i], UI.idxs);
+    decisions.push({playerId:i, idx:mv.idx, value:mv.value, engraves:mv.engraves, orderId:mv.orderId});
+  }
+  var ev = resolveRound(S, decisions);
+  UI.carved = ev.carved.slice();
+  UI.lastEvent = ev;
+  UI.phase = 'resolved';
+  render();
+}
+
+function renderResolved(){
+  var ev=UI.lastEvent, h='';
+  h += '<h2 style="color:var(--gold2);font-size:14px">R'+ev.round+' の結果</h2>';
+  h += '<table><tr><th>プレイヤー</th><th>生産</th><th>刻み</th><th>割り当て</th></tr>';
+  ev.produced.forEach(function(pr){
+    var p=S.players[pr.pid];
+    var assign = pr.orderId==null ? '―' : '注文へ';
+    h += '<tr><td style="color:'+PCOLOR[pr.pid]+'">'+shortName(p)+'</td>'+
+         '<td><b>'+pr.value+'</b>（面'+(pr.idx+1)+'）</td>'+
+         '<td>'+(pr.engraved?'★刻んだ':'―')+'</td>'+
+         '<td>'+assign+'</td></tr>';
+  });
+  h += '</table>';
+  if(ev.completed.length){
+    h += '<div class="hint">';
+    ev.completed.forEach(function(c){
+      var w=S.players[c.winner];
+      var line = '達成: '+orderReq(c.order)+' → <b style="color:'+PCOLOR[c.winner]+'">'+shortName(w)+'</b>（+'+c.order.score+'点）';
+      if(c.tie){ line += ' <span class="tag">同着 → 白紙が多い方が独占（白紙'+c.blanks+'）</span>'; }
+      h += '<div>'+line+'</div>';
+    });
+    h += '</div>';
+  }
+  if(S.round>=12){
+    h += '<div class="row" style="justify-content:center;margin-top:10px"><button class="pri" onclick="goEnd()">12ラウンド終了 ― 記録を見る</button></div>';
+  } else {
+    h += '<div class="row" style="justify-content:center;margin-top:10px"><button class="pri" onclick="nextRound()">次のラウンドへ →</button></div>';
+  }
+  return h;
+}
+function nextRound(){ S.round++; UI.phase='idle'; UI.faces=null; UI.idxs=null; UI.sel=null; render(); }
+function goEnd(){ UI.phase='end'; render(); }
+
+// ================= 計測ログ（§5） =================
+function renderEnd(){
+  var h='<h2 style="color:var(--gold2);font-size:15px">計測ログ ― この1戦の記録</h2>';
+  h += '<div class="fact" style="margin-bottom:10px">※これはバランスの証明ではない。「何が起きたか」を思い出すための材料。</div>';
+
+  // 順位
+  var order = S.players.slice().sort(function(a,b){ return b.score-a.score; });
+  h += '<table><tr><th>順位</th><th>プレイヤー</th><th>得点</th><th>刻んだR</th><th>最終ダイス</th><th>残白紙</th></tr>';
+  order.forEach(function(p,rank){
+    var er = p.engravedRounds.length ? p.engravedRounds.join(', ') : 'なし';
+    var dice = p.die.map(function(x){ return x===null?'・':x; }).join(' ');
+    h += '<tr><td>'+(rank+1)+'</td><td style="color:'+PCOLOR[p.id]+'">'+p.name+'</td>'+
+         '<td><b>'+p.score+'</b></td><td class="fact">'+er+'</td>'+
+         '<td style="font-family:var(--ttl);letter-spacing:.15em">'+dice+'</td>'+
+         '<td>'+blanks(p)+'</td></tr>';
+  });
+  h += '</table>';
+
+  // 獲得注文
+  h += '<h2 style="color:var(--muted);font-size:13px;margin-top:14px">獲得注文</h2>';
+  h += '<table><tr><th>プレイヤー</th><th>獲得した注文（R）</th></tr>';
+  S.players.forEach(function(p){
+    var w = p.won.length ? p.won.map(function(o){
+      return (o.type==='REP'?('「'+o.v+'」×'+o.k):'相異3種')+'(R'+o.wonRound+'/'+o.score+'点)';
+    }).join('、 ') : 'なし';
+    h += '<tr><td style="color:'+PCOLOR[p.id]+'">'+p.name+'</td><td class="fact">'+w+'</td></tr>';
+  });
+  h += '</table>';
+
+  // 同着
+  h += '<h2 style="color:var(--muted);font-size:13px;margin-top:14px">同着（他人と同じ注文を同時達成）</h2>';
+  h += '<div class="fact">発生回数: <b>'+S.tieRounds.length+'</b> 回'+
+       (S.tieRounds.length?('（R '+S.tieRounds.join(', R ')+'）'):'')+'</div>';
+
+  h += '<div class="row" style="justify-content:center;margin-top:16px"><button class="pri" onclick="startGame()">もう一度</button></div>';
+  return h;
+}
+
+// ================= 履歴 =================
+function renderHistory(){
+  if(!S.log.length) return '';
+  var h='<div class="card"><h2>履歴</h2><div class="log">';
+  for(var i=S.log.length-1;i>=0;i--){
+    var ev=S.log[i];
+    var line='<span class="rh">R'+ev.round+'</span> ';
+    line += ev.produced.map(function(pr){ return shortName(S.players[pr.pid])+':'+pr.value+(pr.engraved?'★':''); }).join('  ');
+    if(ev.completed.length){
+      line += ' ／ 達成 '+ev.completed.map(function(c){ return shortName(S.players[c.winner])+(c.tie?'(同着)':''); }).join(',');
+    }
+    h += '<div>'+line+'</div>';
+  }
+  h += '</div></div>';
+  return h;
+}
+
+// 起動
+render();
+</script>
+</body>
+</html>
