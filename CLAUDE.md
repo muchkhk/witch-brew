@@ -290,6 +290,8 @@ function npcTurn(){ if(!S) return; /* ... */ }
 - 採点と終了公開はホストだけ。ホスト不在中は `await_score` で待機し、再接続後にtransactionのphaseガードで一度だけ再開
 - `game` 書込みは着席者だけ、`reveal` は終了後のホストだけ。旧 `rooms` は最終ルールで拒否
 - Firebase Database Emulatorのルール試験は15項目。`tests/witch_rules.test.mjs`
+- 実ゲームのローカル受入は `npm run emulators:witch` でAuth（9099）とDatabase（9150）を起動し、HTTP配信した `witch.html?emulator=1` を開く。接続は `localhost` / `127.0.0.1` に限定され、本番ホストでは有効にならない
+- Auth永続性は `LOCAL`。同じブラウザプロファイルの同じ匿名UIDがDB上の既存席と一致する場合だけ、開始後も元の席へ復帰する。別プロファイルやストレージ削除後の新UIDは途中参加できない
 - B方式の公開データは従来どおりチーム合計のみ。好みプール・点数・素材数・儀式数・分割/選択/採点ルールは変更していない
 
 ### 既知の限界
