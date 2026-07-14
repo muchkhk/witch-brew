@@ -1,0 +1,123 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "rooms": {
+      ".read": false,
+      ".write": false
+    },
+    "seriRoomsV2": {
+      "$code": {
+        "meta": {
+          ".read": "auth != null && data.exists()",
+          ".write": "auth != null && $code.matches(/^[A-HJ-NP-Z2-9]{6}$/) && ((!data.exists() && newData.child('hostUid').val() === auth.uid && newData.child('phase').val() === 'lobby') || (data.exists() && data.child('hostUid').val() === auth.uid && newData.child('hostUid').val() === auth.uid))",
+          ".validate": "newData.hasChildren(['hostUid','phase','n','rounds','money','nc','version','createdAt'])",
+          "hostUid": { ".validate": "newData.isString() && newData.val().length >= 6 && newData.val().length <= 128" },
+          "phase": { ".validate": "newData.isString() && (newData.val() === 'lobby' || newData.val() === 'playing' || newData.val() === 'ended')" },
+          "n": { ".validate": "newData.isNumber() && newData.val() >= 3 && newData.val() <= 4 && newData.val() % 1 === 0" },
+          "rounds": { ".validate": "newData.isNumber() && newData.val() >= 6 && newData.val() <= 8 && newData.val() % 1 === 0" },
+          "money": { ".validate": "newData.isNumber() && newData.val() >= 20 && newData.val() <= 40 && newData.val() % 1 === 0" },
+          "nc": { ".validate": "newData.isNumber() && newData.val() === 3" },
+          "version": { ".validate": "newData.isString() && newData.val() === '2.0'" },
+          "createdAt": { ".validate": "newData.isNumber() && newData.val() > 0" },
+          "$other": { ".validate": false }
+        },
+        "seats": {
+          ".read": "auth != null && root.child('seriRoomsV2').child($code).child('meta').exists()",
+          "$seat": {
+            ".write": "auth != null && $seat.matches(/^[0-3]$/) && ((!data.exists() && root.child('seriRoomsV2').child($code).child('meta').child('phase').val() === 'lobby' && newData.child('uid').val() === auth.uid && ($seat === '0' || root.child('seriRoomsV2').child($code).child('seats').child('0').child('uid').val() !== auth.uid) && ($seat === '1' || root.child('seriRoomsV2').child($code).child('seats').child('1').child('uid').val() !== auth.uid) && ($seat === '2' || root.child('seriRoomsV2').child($code).child('seats').child('2').child('uid').val() !== auth.uid) && ($seat === '3' || root.child('seriRoomsV2').child($code).child('seats').child('3').child('uid').val() !== auth.uid)) || (data.exists() && data.child('uid').val() === auth.uid && newData.child('uid').val() === auth.uid))",
+            ".validate": "newData.hasChildren(['uid','name','lastSeen'])",
+            "uid": { ".validate": "newData.isString() && newData.val() === auth.uid" },
+            "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 12" },
+            "lastSeen": { ".validate": "newData.isNumber() && newData.val() > 0" },
+            "$other": { ".validate": false }
+          }
+        },
+        "private": {
+          ".read": "auth != null && root.child('seriRoomsV2').child($code).child('meta').child('hostUid').val() === auth.uid",
+          "$uid": {
+            ".read": "auth != null && (auth.uid === $uid || root.child('seriRoomsV2').child($code).child('meta').child('hostUid').val() === auth.uid)",
+            ".write": "auth != null && root.child('seriRoomsV2').child($code).child('meta').child('hostUid').val() === auth.uid",
+            ".validate": "newData.hasChildren(['ownerUid','seat','lens','see']) && newData.child('ownerUid').val() === $uid && ((newData.child('seat').val() === 0 && root.child('seriRoomsV2').child($code).child('seats').child('0').child('uid').val() === $uid) || (newData.child('seat').val() === 1 && root.child('seriRoomsV2').child($code).child('seats').child('1').child('uid').val() === $uid) || (newData.child('seat').val() === 2 && root.child('seriRoomsV2').child($code).child('seats').child('2').child('uid').val() === $uid) || (newData.child('seat').val() === 3 && root.child('seriRoomsV2').child($code).child('seats').child('3').child('uid').val() === $uid))",
+            "ownerUid": { ".validate": "newData.isString() && newData.val() === $uid" },
+            "seat": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3 && newData.val() % 1 === 0" },
+            "lens": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 2 && newData.val() % 1 === 0" },
+            "see": {
+              ".validate": "newData.hasChildren(['0','1','2','3','4','5']) && ((root.child('seriRoomsV2').child($code).child('meta').child('rounds').val() === 6 && !newData.child('6').exists() && !newData.child('7').exists()) || (root.child('seriRoomsV2').child($code).child('meta').child('rounds').val() === 8 && newData.hasChildren(['6','7'])))",
+              "$round": { ".validate": "$round.matches(/^[0-7]$/) && newData.isNumber() && newData.val() >= -2 && newData.val() <= 6 && newData.val() % 1 === 0" }
+            },
+            "lots": {
+              ".validate": "!newData.exists() || ($uid === root.child('seriRoomsV2').child($code).child('meta').child('hostUid').val() && newData.hasChildren(['0','1','2','3','4','5']) && ((root.child('seriRoomsV2').child($code).child('meta').child('rounds').val() === 6 && !newData.child('6').exists() && !newData.child('7').exists()) || (root.child('seriRoomsV2').child($code).child('meta').child('rounds').val() === 8 && newData.hasChildren(['6','7']))))",
+              "$round": {
+                ".validate": "$round.matches(/^[0-7]$/) && newData.hasChildren(['0','1','2'])",
+                "$component": { ".validate": "$component.matches(/^[0-2]$/) && newData.isNumber() && newData.val() >= -2 && newData.val() <= 6 && newData.val() % 1 === 0" }
+              }
+            },
+            "$other": { ".validate": false }
+          }
+        },
+        "money": {
+          ".read": "auth != null && root.child('seriRoomsV2').child($code).child('meta').exists()",
+          "$seat": {
+            ".write": "auth != null && root.child('seriRoomsV2').child($code).child('meta').child('hostUid').val() === auth.uid",
+            ".validate": "$seat.matches(/^[0-3]$/) && newData.isNumber() && newData.val() >= 0 && newData.val() <= 40 && newData.val() % 1 === 0"
+          }
+        },
+        "game": {
+          ".read": "auth != null && root.child('seriRoomsV2').child($code).child('meta').exists()",
+          ".write": "auth != null && root.child('seriRoomsV2').child($code).child('meta').child('hostUid').val() === auth.uid",
+          ".validate": "newData.hasChildren(['round','phase','price','curSeat','starter','live','lastActionId']) && (!data.exists() || (newData.child('round').val() === data.child('round').val() && ((data.child('phase').val() === 'auction' && (newData.child('phase').val() === 'auction' || newData.child('phase').val() === 'reveal')) || (data.child('phase').val() === 'reveal' && (newData.child('phase').val() === 'reveal' || newData.child('phase').val() === 'end')) || (data.child('phase').val() === 'end' && newData.child('phase').val() === 'end'))) || (data.child('phase').val() === 'reveal' && newData.child('phase').val() === 'auction' && newData.child('round').val() === data.child('round').val() + 1))",
+          "round": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 8 && newData.val() % 1 === 0" },
+          "phase": { ".validate": "newData.isString() && (newData.val() === 'auction' || newData.val() === 'reveal' || newData.val() === 'end')" },
+          "price": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 40 && newData.val() % 1 === 0" },
+          "curSeat": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3 && newData.val() % 1 === 0" },
+          "starter": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3 && newData.val() % 1 === 0" },
+          "live": { ".validate": "newData.isString() && newData.val().matches(/^[0-3](,[0-3]){0,3}$/) && newData.val().length <= 7" },
+          "lastActionId": { ".validate": "newData.isString() && newData.val().length <= 80" },
+          "$other": { ".validate": false }
+        },
+        "actions": {
+          ".read": "auth != null && root.child('seriRoomsV2').child($code).child('meta').child('hostUid').val() === auth.uid",
+          "$seat": {
+            ".read": "auth != null && (root.child('seriRoomsV2').child($code).child('meta').child('hostUid').val() === auth.uid || root.child('seriRoomsV2').child($code).child('seats').child($seat).child('uid').val() === auth.uid)",
+            ".write": "auth != null && $seat.matches(/^[0-3]$/) && root.child('seriRoomsV2').child($code).child('meta').child('phase').val() === 'playing' && root.child('seriRoomsV2').child($code).child('seats').child($seat).child('uid').val() === auth.uid",
+            ".validate": "newData.hasChildren(['id','type','round','price','createdAt']) && newData.child('round').val() === root.child('seriRoomsV2').child($code).child('game').child('round').val() && newData.child('price').val() === root.child('seriRoomsV2').child($code).child('game').child('price').val()",
+            "id": { ".validate": "newData.isString() && newData.val().length >= 8 && newData.val().length <= 80" },
+            "type": { ".validate": "newData.isString() && (newData.val() === 'bid' || newData.val() === 'drop')" },
+            "round": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 7 && newData.val() % 1 === 0" },
+            "price": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 40 && newData.val() % 1 === 0" },
+            "createdAt": { ".validate": "newData.isNumber() && newData.val() > 0" },
+            "$other": { ".validate": false }
+          }
+        },
+        "history": {
+          ".read": "auth != null && root.child('seriRoomsV2').child($code).child('meta').exists()",
+          "$round": {
+            ".write": "auth != null && root.child('seriRoomsV2').child($code).child('meta').child('hostUid').val() === auth.uid && !data.exists()",
+            ".validate": "$round.matches(/^[0-7]$/) && newData.hasChildren(['winnerSeat','price','values','createdAt'])",
+            "winnerSeat": { ".validate": "newData.isNumber() && newData.val() >= -1 && newData.val() <= 3 && newData.val() % 1 === 0" },
+            "price": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 40 && newData.val() % 1 === 0" },
+            "values": {
+              ".validate": "newData.hasChildren(['0','1','2'])",
+              "$component": { ".validate": "$component.matches(/^[0-2]$/) && newData.isNumber() && newData.val() >= -2 && newData.val() <= 6 && newData.val() % 1 === 0" }
+            },
+            "createdAt": { ".validate": "newData.isNumber() && newData.val() > 0" },
+            "$other": { ".validate": false }
+          }
+        },
+        "reveal": {
+          ".read": "auth != null && root.child('seriRoomsV2').child($code).child('meta').child('phase').val() === 'ended'",
+          ".write": "auth != null && root.child('seriRoomsV2').child($code).child('meta').child('hostUid').val() === auth.uid && root.child('seriRoomsV2').child($code).child('meta').child('phase').val() === 'ended'",
+          ".validate": "newData.hasChildren(['lenses','createdAt'])",
+          "lenses": {
+            ".validate": "(root.child('seriRoomsV2').child($code).child('meta').child('n').val() === 3 && newData.hasChildren(['0','1','2']) && !newData.child('3').exists()) || (root.child('seriRoomsV2').child($code).child('meta').child('n').val() === 4 && newData.hasChildren(['0','1','2','3']))",
+            "$seat": { ".validate": "$seat.matches(/^[0-3]$/) && newData.isNumber() && newData.val() >= 0 && newData.val() <= 2 && newData.val() % 1 === 0" }
+          },
+          "createdAt": { ".validate": "newData.isNumber() && newData.val() > 0" },
+          "$other": { ".validate": false }
+        },
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}

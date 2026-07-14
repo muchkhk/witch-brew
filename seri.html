@@ -1,32 +1,137 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
-<title>影の競り｜一時停止中</title>
-<style>
-:root{color-scheme:dark;--bg:#0d0f14;--panel:#161a22;--line:#343b49;--ink:#eee7d7;--muted:#aaa598;--gold:#e0b352}
-*{box-sizing:border-box}
-html,body{min-height:100%}
-body{margin:0;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 20%,rgba(224,179,82,.12),transparent 34rem),var(--bg);color:var(--ink);font-family:"Yu Mincho","Hiragino Mincho ProN",serif}
-main{width:min(680px,100%);padding:clamp(28px,6vw,52px);border:1px solid var(--line);border-radius:16px;background:rgba(22,26,34,.94);box-shadow:0 24px 80px rgba(0,0,0,.45);text-align:center}
-.eyebrow{margin:0 0 16px;color:var(--gold);font:700 12px/1.5 system-ui,sans-serif;letter-spacing:.18em}
-h1{margin:0;font-size:clamp(30px,7vw,48px);letter-spacing:.12em}
-.notice{margin:28px auto 0;font-size:clamp(17px,3.5vw,21px);line-height:1.9}
-.detail{margin:18px auto 0;color:var(--muted);font:14px/1.8 system-ui,sans-serif}
-a{display:inline-block;margin-top:30px;padding:11px 18px;border:1px solid var(--gold);border-radius:999px;color:var(--gold);font:700 14px/1.2 system-ui,sans-serif;text-decoration:none}
-a:hover,a:focus-visible{background:var(--gold);color:var(--bg)}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'nonce-seri-v2' https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com http://127.0.0.1:* ws://127.0.0.1:*; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; object-src 'none'">
+  <title>影の競り ― セキュアオンライン v2</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0e1118;--panel:#171d29;--line:#34405a;--gold:#e9be63;--text:#edf1fa;--muted:#aeb8ca;--danger:#ff8d8d;--ok:#81d6a2}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% 0,#202943,var(--bg) 44%);color:var(--text);font-family:system-ui,"Noto Sans JP",sans-serif;min-height:100vh}
+    main{width:min(920px,calc(100% - 28px));margin:auto;padding:28px 0 60px}h1{letter-spacing:.18em;color:var(--gold);margin:.2em 0}h2{font-size:1.12rem;margin:0 0 14px}p{line-height:1.65}.sub,.muted{color:var(--muted)}
+    .panel{background:rgba(23,29,41,.94);border:1px solid var(--line);border-radius:14px;padding:20px;margin:16px 0;box-shadow:0 15px 40px #0005}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    label{display:grid;gap:6px;color:var(--muted)}input,select,button{font:inherit;border-radius:9px;border:1px solid var(--line);padding:11px 13px}input,select{background:#0d1220;color:var(--text);width:100%}button{background:#29344a;color:var(--text);cursor:pointer}button.primary{background:#755b20;border-color:#b58c35;color:#fff8df}button.danger{background:#542d38}button:disabled{opacity:.45;cursor:not-allowed}
+    .status{min-height:24px;color:var(--muted)}.status.error{color:var(--danger)}.status.ok{color:var(--ok)}.code{font:700 1.7rem ui-monospace,monospace;letter-spacing:.2em;color:var(--gold)}.badge{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:4px 9px;color:var(--muted)}
+    ul{list-style:none;padding:0;margin:0}.seat{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #ffffff14}.seat:last-child{border:0}.mine{color:var(--gold)}.waiting{border-color:#806329;color:#ffe09b}.price{font-size:2.3rem;font-weight:800;color:var(--gold)}.secret{border:1px dashed #76633b;background:#211d13;padding:14px;border-radius:10px}.history{display:grid;gap:7px}.history>div{padding:8px 10px;background:#101621;border-radius:8px}.footer{margin-top:28px;color:var(--muted);font-size:.85rem}.hidden{display:none!important}
+  </style>
 </head>
 <body>
 <main>
-  <p class="eyebrow">SECURITY MAINTENANCE</p>
-  <h1>影 の 競 り</h1>
-  <p class="notice">『影の競り』オンライン版は、<br>セキュリティ構造の更新のため一時停止しています。</p>
-  <p class="detail">旧ルームの作成・参加・観戦機能は利用できません。安全な新バージョンの準備が整うまでお待ちください。</p>
-  <a href="index.html">ゲーム一覧へ戻る</a>
+  <header>
+    <h1>影 の 競 り</h1>
+    <p class="sub">匿名認証とUID別秘匿データを使うセキュアオンライン版</p>
+  </header>
+  <div id="app" aria-live="polite"></div>
+  <p class="footer">影の競り v2.0 security candidate ／ ホストは進行と採点の信頼主体です。</p>
 </main>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script nonce="seri-v2">
+"use strict";
+const FIREBASE_CONFIG={apiKey:"AIzaSyCGvLgGTr1L-bkLn0i5b3sJ7nCRJ9fX42M",authDomain:"boadgame2.firebaseapp.com",databaseURL:"https://boadgame2-default-rtdb.firebaseio.com",projectId:"boadgame2",storageBucket:"boadgame2.firebasestorage.app",messagingSenderId:"536616889122",appId:"1:536616889122:web:29e72276c32a9fc0107144"};
+const ROOT="seriRoomsV2",VER="2.0",SESSION_KEY="seri_v2_session",NAME_KEY="seri_v2_name";
+const COMPONENTS=["色味","透明度","輝き"],CODE_CHARS="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const app=document.getElementById("app");
+let auth=null,db=null,user=null,roomRef=null,heartbeat=null,actionBusy=false,revealAttached=false,hostPrivateAttached=false,hostActionsAttached=false;
+let unsub=[];
+const ST={room:"",seat:null,spectator:false,meta:null,seats:{},game:null,money:{},history:{},privateData:null,allPrivate:{},reveal:null,error:"",notice:""};
+
+function node(tag,attrs={},...children){const e=document.createElement(tag);for(const [k,v] of Object.entries(attrs)){if(k==="class")e.className=v;else if(k==="onclick")e.addEventListener("click",v);else if(k==="onchange")e.addEventListener("change",v);else if(k==="disabled")e.disabled=!!v;else if(k==="value")e.value=v;else e.setAttribute(k,String(v));}for(const c of children.flat()){if(c==null)continue;e.append(c instanceof Node?c:document.createTextNode(String(c)));}return e;}
+function panel(...c){return node("section",{class:"panel"},...c)}
+function safeName(v){return String(v||"").replace(/[\u0000-\u001f\u007f]/g,"").trim().slice(0,12)}
+function normalizeCode(v){return String(v||"").toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g,"").slice(0,6)}
+function newCode(){let s="";crypto.getRandomValues(new Uint32Array(6)).forEach(x=>s+=CODE_CHARS[x%CODE_CHARS.length]);return s}
+function now(){return Date.now()}
+function status(text,kind=""){return node("p",{class:`status ${kind}`.trim()},text)}
+function fail(err){ST.error=err&&err.message?err.message:String(err);ST.notice="";render()}
+function note(text){ST.notice=text;ST.error="";render()}
+function isHost(){return !!(user&&ST.meta&&ST.meta.hostUid===user.uid&&!ST.spectator)}
+function roomPath(path=""){return `${ROOT}/${ST.room}${path?`/${path}`:""}`}
+function saveSession(){localStorage.setItem(SESSION_KEY,JSON.stringify({room:ST.room,seat:ST.seat,spectator:ST.spectator}))}
+function clearSession(){localStorage.removeItem(SESSION_KEY)}
+function listen(path,cb,onError=fail){const r=db.ref(roomPath(path));const fn=s=>cb(s.val());r.on("value",fn,onError);unsub.push(()=>r.off("value",fn))}
+function detach(){for(const fn of unsub.splice(0)){try{fn()}catch(_){}}if(heartbeat)clearInterval(heartbeat);heartbeat=null;roomRef=null;revealAttached=false;hostPrivateAttached=false;hostActionsAttached=false}
+
+async function bootstrap(){try{firebase.initializeApp(FIREBASE_CONFIG);auth=firebase.auth();db=firebase.database();const q=new URLSearchParams(location.search);const local=location.hostname==="localhost"||/^127\./.test(location.hostname);if(local&&q.get("emulator")==="1"){auth.useEmulator("http://127.0.0.1:9199",{disableWarnings:true});db.useEmulator("127.0.0.1",9170)}await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);auth.onAuthStateChanged(async u=>{if(!u){await auth.signInAnonymously();return}user=u;await restoreSession();render()})}catch(e){fail(e)}}
+
+async function restoreSession(){let s=null;try{s=JSON.parse(localStorage.getItem(SESSION_KEY)||"null")}catch(_){clearSession()}if(!s||!s.room)return;const code=normalizeCode(s.room);if(code.length!==6){clearSession();return}try{const meta=(await db.ref(`${ROOT}/${code}/meta`).get()).val();if(!meta){clearSession();return}if(s.spectator){ST.room=code;ST.spectator=true;ST.seat=null;attach();return}const seat=(await db.ref(`${ROOT}/${code}/seats/${s.seat}`).get()).val();if(seat&&seat.uid===user.uid){ST.room=code;ST.spectator=false;ST.seat=Number(s.seat);attach()}else clearSession()}catch(_){clearSession()}}
+
+async function createRoom(){try{const name=safeName(document.getElementById("name")?.value);const n=Number(document.getElementById("players")?.value);if(!name)throw new Error("名前を入力してください");if(n!==3&&n!==4)throw new Error("人数は3人または4人です");localStorage.setItem(NAME_KEY,name);let code="";for(let i=0;i<8;i++){code=newCode();if(!(await db.ref(`${ROOT}/${code}/meta`).get()).exists())break}const rounds=n===3?6:8,money=n===3?30:34;await db.ref(`${ROOT}/${code}/meta`).set({hostUid:user.uid,phase:"lobby",n,rounds,money,nc:3,version:VER,createdAt:now()});await db.ref(`${ROOT}/${code}/seats/0`).set({uid:user.uid,name,lastSeen:now()});ST.room=code;ST.seat=0;ST.spectator=false;saveSession();attach();note("ルームを作成しました") }catch(e){fail(e)}}
+
+async function joinRoom(spectator=false){try{const name=safeName(document.getElementById("name")?.value);const code=normalizeCode(document.getElementById("roomCode")?.value);if(code.length!==6)throw new Error("6文字のルームコードを入力してください");if(!spectator&&!name)throw new Error("名前を入力してください");const r=db.ref(`${ROOT}/${code}`),meta=(await r.child("meta").get()).val();if(!meta)throw new Error("ルームが見つかりません");if(spectator){ST.room=code;ST.seat=null;ST.spectator=true;saveSession();attach();return}localStorage.setItem(NAME_KEY,name);let seatNo=null;const seats=(await r.child("seats").get()).val()||{};for(const [k,v] of Object.entries(seats))if(v&&v.uid===user.uid)seatNo=Number(k);if(seatNo==null){if(meta.phase!=="lobby")throw new Error("開始後の途中参加はできません");for(let i=0;i<meta.n;i++){const result=await r.child(`seats/${i}`).transaction(cur=>cur||{uid:user.uid,name,lastSeen:now()},undefined,false);if(result.committed&&result.snapshot.val()?.uid===user.uid){seatNo=i;break}}}if(seatNo==null)throw new Error("空席がありません");ST.room=code;ST.seat=seatNo;ST.spectator=false;saveSession();attach()}catch(e){fail(e)}}
+
+function attachHostStreams(){if(!isHost())return;if(!hostPrivateAttached){hostPrivateAttached=true;listen("private",v=>{ST.allPrivate=v||{};render();hostRepair()})}if(!hostActionsAttached){hostActionsAttached=true;for(let i=0;i<4;i++)listen(`actions/${i}`,v=>{if(v)processAction(i,v)})}}
+function attach(){detach();roomRef=db.ref(`${ROOT}/${ST.room}`);listen("meta",v=>{ST.meta=v;attachHostStreams();if(v?.phase==="ended"&&!revealAttached){revealAttached=true;listen("reveal",x=>{ST.reveal=x;render()})}render();hostRepair()});listen("seats",v=>{ST.seats=v||{};render()});listen("game",v=>{ST.game=v;render();hostRepair()});listen("money",v=>{ST.money=v||{};render()});listen("history",v=>{ST.history=v||{};render();hostRepair()});if(!ST.spectator&&ST.seat!=null){listen(`private/${user.uid}`,v=>{ST.privateData=v;render();hostRepair()});const beat=()=>roomRef.child(`seats/${ST.seat}`).update({lastSeen:now()}).catch(()=>{});beat();heartbeat=setInterval(beat,15000)}render()}
+
+function lots(rounds){return Array.from({length:rounds},()=>Array.from({length:3},()=>Math.floor(Math.random()*9)-2))}
+function shuffledLenses(n){const a=Array.from({length:n},(_,i)=>i%3);for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+async function startGame(){try{if(!isHost()||ST.meta.phase!=="lobby")return;const ordered=Array.from({length:ST.meta.n},(_,i)=>ST.seats[i]);if(ordered.some(x=>!x))throw new Error("全員が着席するまで開始できません");const allLots=lots(ST.meta.rounds),lenses=shuffledLenses(ST.meta.n),up={};ordered.forEach((s,i)=>{const p={ownerUid:s.uid,seat:i,lens:lenses[i],see:Object.fromEntries(allLots.map((v,r)=>[r,v[lenses[i]]]))};if(s.uid===user.uid)p.lots=allLots;up[`private/${s.uid}`]=p;up[`money/${i}`]=ST.meta.money});up.game={round:0,phase:"auction",price:0,curSeat:0,starter:0,live:Array.from({length:ST.meta.n},(_,i)=>i).join(","),lastActionId:""};up["meta/phase"]="playing";await roomRef.update(up);note("ゲームを開始しました") }catch(e){fail(e)}}
+
+function nextLive(live,seat){for(let d=1;d<=4;d++){const n=(seat+d)%ST.meta.n;if(live.includes(n))return n}return live[0]}
+async function sendAction(type){try{if(ST.spectator||ST.seat==null||!ST.game)return;const action={id:`${user.uid.slice(-8)}-${now()}-${crypto.getRandomValues(new Uint32Array(1))[0]}`,type,round:ST.game.round,price:ST.game.price,createdAt:now()};await roomRef.child(`actions/${ST.seat}`).set(action)}catch(e){fail(e)}}
+async function processAction(seat,action){if(actionBusy||!isHost()||!ST.game||ST.meta.phase!=="playing")return;actionBusy=true;try{const result=await roomRef.child("game").transaction(g=>{if(!g||g.phase!=="auction"||g.curSeat!==seat||g.round!==action.round||g.price!==action.price||g.lastActionId===action.id)return;let live=String(g.live).split(",").map(Number);if(action.type==="bid"){const cash=Number(ST.money[seat]||0);if(g.price+1>cash)return;g.price+=1;g.curSeat=nextLive(live,seat)}else if(action.type==="drop"){live=live.filter(x=>x!==seat);if(!live.length)return;g.live=live.join(",");if(live.length===1){g.phase="reveal";g.curSeat=live[0]}else g.curSeat=nextLive(live,seat)}else return;g.lastActionId=action.id;return g},undefined,false);if(result.committed&&result.snapshot.val()?.phase==="reveal")await resolveRound(result.snapshot.val())}catch(e){if(e?.code!=="PERMISSION_DENIED")fail(e)}finally{actionBusy=false}}
+async function resolveRound(g){if(!isHost()||!g||g.phase!=="reveal")return;const existing=(await roomRef.child(`history/${g.round}`).get()).val();if(existing)return;const hostPrivate=ST.allPrivate[user.uid]||ST.privateData,l=hostPrivate?.lots?.[g.round];if(!l)return;const winner=Number(String(g.live).split(",")[0]),cash=Number(ST.money[winner]||0);const up={};up[`history/${g.round}`]={winnerSeat:winner,price:g.price,values:l,createdAt:now()};up[`money/${winner}`]=Math.max(0,cash-g.price);try{await roomRef.update(up)}catch(e){if(e?.code!=="PERMISSION_DENIED")throw e}}
+async function hostRepair(){if(!isHost())return;if(ST.game?.phase==="reveal"&&!ST.history?.[ST.game.round]){try{await resolveRound(ST.game)}catch(e){fail(e)}}}
+async function advanceRound(){try{if(!isHost()||ST.game?.phase!=="reveal"||!ST.history?.[ST.game.round])return;const nr=ST.game.round+1;if(nr>=ST.meta.rounds){await finishGame();return}const live=Array.from({length:ST.meta.n},(_,i)=>i).filter(i=>Number(ST.money[i]||0)>0);if(live.length<2){await finishGame();return}const starter=nr%ST.meta.n,cur=live.includes(starter)?starter:nextLive(live,starter);await roomRef.child("game").set({round:nr,phase:"auction",price:0,curSeat:cur,starter,live:live.join(","),lastActionId:""})}catch(e){fail(e)}}
+async function finishGame(){await roomRef.child("game").update({phase:"end"});await roomRef.child("meta/phase").set("ended");const lenses={};for(const p of Object.values(ST.allPrivate))lenses[p.seat]=p.lens;await roomRef.child("reveal").set({lenses,createdAt:now()})}
+
+function hostWaiting(){const hostSeat=Object.values(ST.seats).find(s=>s?.uid===ST.meta?.hostUid);return ST.meta?.phase==="playing"&&(!hostSeat?.lastSeen||now()-hostSeat.lastSeen>30000)}
+function seatList(){const ul=node("ul");for(let i=0;i<(ST.meta?.n||0);i++){const s=ST.seats[i],money=ST.money[i];ul.append(node("li",{class:`seat ${i===ST.seat?"mine":""}`},node("span",{},s?s.name:`空席 ${i+1}`,i===ST.seat?"（あなた）":""),node("span",{class:"muted"},money==null?"":`💰 ${money}`)))}return ul}
+function historyView(){const box=node("div",{class:"history"});for(const k of Object.keys(ST.history||{}).map(Number).sort((a,b)=>a-b)){const h=ST.history[k],winner=ST.seats[h.winnerSeat]?.name||`席${h.winnerSeat+1}`;box.append(node("div",{},`第${k+1}ラウンド：${winner} ／ ${h.price} ／ [${Object.values(h.values).join(", ")}]`))}return box}
+function scores(){const result=[];const lenses=ST.reveal?.lenses||{};for(let i=0;i<ST.meta.n;i++){let score=Number(ST.money[i]||0);for(const h of Object.values(ST.history||{}))if(h.winnerSeat===i){const v=Object.values(h.values).map(Number);score+=v.reduce((a,b)=>a+b,0)+Number(v[lenses[i]]||0)}result.push({seat:i,score})}return result.sort((a,b)=>b.score-a.score)}
+
+function renderHome(){const oldName=localStorage.getItem(NAME_KEY)||"";const name=node("input",{id:"name",maxlength:12,value:oldName,autocomplete:"nickname"});const code=node("input",{id:"roomCode",maxlength:6,placeholder:"6文字コード",autocomplete:"off"});code.addEventListener("input",()=>code.value=normalizeCode(code.value));app.replaceChildren(panel(node("h2",{},"オンラインで遊ぶ"),status(user?`匿名認証済み UID末尾: ${user.uid.slice(-6)}`:"匿名認証中…",user?"ok":""),node("div",{class:"grid"},node("label",{},"名前",name),node("label",{},"人数",node("select",{id:"players"},node("option",{value:3},"3人"),node("option",{value:4},"4人"))),node("label",{},"ルームコード",code)),node("div",{class:"row"},node("button",{class:"primary",onclick:createRoom,disabled:!user},"部屋を作る"),node("button",{onclick:()=>joinRoom(false),disabled:!user},"参加する"),node("button",{onclick:()=>joinRoom(true),disabled:!user},"観戦する")),status(ST.error,"error"),status(ST.notice,"ok")),panel(node("h2",{},"v2の信頼境界"),node("p",{class:"muted"},"プレイヤーは自分の秘匿情報だけを読めます。観戦者は共有情報のみを読みます。ホストは進行・採点のため全秘匿情報を扱う信頼主体です。")))}
+function renderRoom(){
+  const body=[];
+  const role=ST.spectator?"観戦者":isHost()?"ホスト":`席${ST.seat+1}`;
+  const headerRow=node("div",{class:"row"},
+    node("span",{class:"code"},ST.room),
+    node("button",{onclick:()=>navigator.clipboard?.writeText(ST.room)},"コードをコピー"),
+    node("span",{class:"badge"},role));
+  const metaLine=ST.meta?node("p",{class:"muted"},`${ST.meta.n}人 ／ ${ST.meta.rounds}ラウンド ／ v${ST.meta.version}`):status("同期中…");
+  body.push(panel(headerRow,metaLine,hostWaiting()?status("進行役の再接続を待っています","error"):null,status(ST.error,"error"),status(ST.notice,"ok")));
+  if(!ST.meta){app.replaceChildren(...body);return}
+  if(ST.meta.phase==="lobby"){
+    const start=isHost()?node("button",{class:"primary",onclick:startGame,disabled:Object.keys(ST.seats).length!==ST.meta.n},"ゲーム開始"):status("ホストの開始を待っています");
+    body.push(panel(node("h2",{},"ロビー"),seatList(),start));
+  }else if(ST.meta.phase==="playing"){
+    const g=ST.game;
+    if(!g){
+      body.push(panel(status("ゲーム状態を同期中…")));
+    }else{
+      const secret=ST.spectator
+        ?node("p",{class:"secret"},"観戦中：プレイ中の秘匿情報は表示されません")
+        :node("p",{class:"secret"},ST.privateData?`あなたが見える ${COMPONENTS[ST.privateData.lens]}：${ST.privateData.see[g.round]}`:"秘匿情報を同期中…");
+      let action=status(g.phase==="reveal"?"ラウンド結果を確定しました":"他のプレイヤーの操作を待っています");
+      if(g.phase==="auction"&&g.curSeat===ST.seat){
+        action=node("div",{class:"row"},
+          node("button",{class:"primary",onclick:()=>sendAction("bid"),disabled:g.price+1>Number(ST.money[ST.seat]||0)},`追う（${g.price+1}）`),
+          node("button",{class:"danger",onclick:()=>sendAction("drop")},"降りる"));
+      }
+      const advance=isHost()&&g.phase==="reveal"
+        ?node("button",{class:"primary",onclick:advanceRound,disabled:!ST.history[g.round]},g.round+1>=ST.meta.rounds?"最終結果へ":"次のラウンドへ")
+        :null;
+      body.push(panel(node("h2",{},`第${g.round+1}ラウンド`),node("div",{class:"price"},`現在価格 ${g.price}`),secret,seatList(),action,advance));
+      body.push(panel(node("h2",{},"履歴"),historyView()));
+    }
+  }else{
+    let result=status("公開情報を作成中…");
+    if(ST.reveal){
+      result=node("div");
+      for(const [i,x] of scores().entries()){
+        const player=ST.seats[x.seat]?.name||`席${x.seat+1}`;
+        result.append(node("p",{class:i===0?"mine":""},`${i+1}位 ${player}：${x.score}点 ／ ${COMPONENTS[ST.reveal.lenses[x.seat]]}`));
+      }
+    }
+    body.push(panel(node("h2",{},"ゲーム終了"),result,historyView()));
+  }
+  body.push(node("div",{class:"row"},node("button",{onclick:leave},"退出してトップへ")));
+  app.replaceChildren(...body);
+}
+function leave(){detach();clearSession();Object.assign(ST,{room:"",seat:null,spectator:false,meta:null,seats:{},game:null,money:{},history:{},privateData:null,allPrivate:{},reveal:null,error:"",notice:""});render()}
+function render(){if(!ST.room)renderHome();else renderRoom()}
+render();bootstrap();
+</script>
 </body>
 </html>
