@@ -22,15 +22,15 @@
     <p class="sub">匿名認証とUID別秘匿データを使うセキュアオンライン版</p>
   </header>
   <div id="app" aria-live="polite"></div>
-  <p class="footer">影の競り v2.0 security candidate ／ ホストは進行と採点の信頼主体です。</p>
+  <p class="footer">影の競り v2.1 security candidate ／ ホストは進行と採点の信頼主体です。</p>
 </main>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script nonce="seri-v2">
 "use strict";
-const FIREBASE_CONFIG={apiKey:"AIzaSyCGvLgGTr1L-bkLn0i5b3sJ7nCRJ9fX42M",authDomain:"boadgame2.firebaseapp.com",databaseURL:"https://boadgame2-default-rtdb.firebaseio.com",projectId:"boadgame2",storageBucket:"boadgame2.firebasestorage.app",messagingSenderId:"536616889122",appId:"1:536616889122:web:29e72276c32a9fc0107144"};
-const ROOT="seriRoomsV2",VER="2.0",SESSION_KEY="seri_v2_session",NAME_KEY="seri_v2_name",SOLO_KEY="seri_c1_solo_state_v2";
+const FIREBASE_CONFIG={apiKey:"AIzaSyDygMPoYmkK51c7zJRrZn-NPQDMk7cmNls",authDomain:"boadgame2.firebaseapp.com",databaseURL:"https://boadgame2-default-rtdb.firebaseio.com",projectId:"boadgame2",storageBucket:"boadgame2.firebasestorage.app",messagingSenderId:"325134431436",appId:"1:325134431436:web:96154e7e489845997e7e69"};
+const ROOT="seriRoomsV2",VER="2.1",SESSION_KEY="seri_v2_session",NAME_KEY="seri_v2_name",SOLO_KEY="seri_c1_solo_state_v2";
 const COMPONENTS=["色味","透明度","輝き","大きさ"],CODE_CHARS="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const app=document.getElementById("app");
 let auth=null,db=null,user=null,roomRef=null,heartbeat=null,actionBusy=false,revealAttached=false,hostPrivateAttached=false,hostActionsAttached=false;
