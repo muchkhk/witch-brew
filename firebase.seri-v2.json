@@ -1,0 +1,16 @@
+{
+  "database": {
+    "rules": "firebase/seri_v2_rules.json"
+  },
+  "emulators": {
+    "auth": {
+      "port": 9199
+    },
+    "database": {
+      "port": 9170
+    },
+    "ui": {
+      "enabled": false
+    }
+  }
+}
