@@ -19,7 +19,7 @@
           "money": { ".validate": "newData.isNumber() && newData.val() >= 20 && newData.val() <= 40 && newData.val() % 1 === 0" },
           "nc": { ".validate": "newData.isNumber() && newData.val() >= 3 && newData.val() <= 4 && newData.val() % 1 === 0" },
           "rule": { ".validate": "newData.isString() && (newData.val() === 'current' || newData.val() === 'c1')" },
-          "version": { ".validate": "newData.isString() && newData.val() === '2.0'" },
+          "version": { ".validate": "newData.isString() && newData.val().beginsWith('2.')" },
           "createdAt": { ".validate": "newData.isNumber() && newData.val() > 0" },
           "$other": { ".validate": false }
         },

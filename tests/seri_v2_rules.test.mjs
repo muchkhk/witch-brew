@@ -6,6 +6,9 @@ import {
   initializeTestEnvironment,
 } from "@firebase/rules-unit-testing";
 
+const SERI_HTML = fs.readFileSync("seri.html", "utf8");
+const VER = SERI_HTML.match(/const ROOT="seriRoomsV2",VER="([^"]+)"/)[1];
+
 const PROJECT_ID = "seri-v2-test";
 const CODE = "ABC234";
 const HOST = "host-uid-0001";
@@ -32,7 +35,7 @@ function meta(phase = "playing") {
     money: 30,
     nc: 3,
     rule: "current",
-    version: "2.0",
+    version: VER,
     createdAt: 1,
   };
 }
