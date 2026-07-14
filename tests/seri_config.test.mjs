@@ -46,3 +46,22 @@ test("seriのapiKeyがwitchのapiKeyと異なる", () => {
 test("witchのprojectIdがbalance-simulator-firebaseである", () => {
   assert.equal(witchConfig.projectId, "balance-simulator-firebase");
 });
+
+test("seri.htmlのVERがRulesのmeta.version検証条件を実際に満たす", () => {
+  const verMatch = seriHtml.match(/const ROOT="seriRoomsV2",VER="([^"]+)"/);
+  assert.ok(verMatch, "VER定数が見つかりません");
+  const VER = verMatch[1];
+
+  const rules = JSON.parse(fs.readFileSync("firebase/seri_v2_rules.json", "utf8"));
+  const validateStr = rules.rules.seriRoomsV2.$code.meta.version[".validate"];
+  assert.ok(validateStr, "meta.versionの.validateが見つかりません");
+
+  const beginsWithMatch = validateStr.match(/beginsWith\('([^']+)'\)/);
+  assert.ok(beginsWithMatch, ".validateがbeginsWith(...)形式ではありません。テストの更新が必要です");
+  const prefix = beginsWithMatch[1];
+
+  assert.ok(
+    VER.startsWith(prefix),
+    `VER="${VER}" はRulesの許可条件 beginsWith('${prefix}') を満たしません`
+  );
+});
