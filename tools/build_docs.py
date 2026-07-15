@@ -44,8 +44,10 @@ def doc_id(filename: str) -> str:
 
 
 def build() -> str:
-    meta = json.load(open(META, encoding="utf-8"))
-    template = open(TEMPLATE, encoding="utf-8").read()
+    with open(META, encoding="utf-8", newline="") as f:
+        meta = json.load(f)
+    with open(TEMPLATE, encoding="utf-8", newline="") as f:
+        template = f.read()
 
     if PLACEHOLDER not in template:
         sys.exit(f"エラー: テンプレートに {PLACEHOLDER} がありません")
@@ -57,7 +59,8 @@ def build() -> str:
         if not os.path.exists(path):
             missing.append(m["file"])
             continue
-        md = open(path, encoding="utf-8").read()
+        with open(path, encoding="utf-8", newline="") as f:
+            md = f.read()
         docs.append({
             "id": doc_id(m["file"]),
             "file": m["file"],
@@ -87,13 +90,15 @@ def main():
     if check_only:
         if not os.path.exists(OUT):
             sys.exit("⚠️ docs.html がありません。build_docs.py を実行してください。")
-        cur = open(OUT, encoding="utf-8").read()
+        with open(OUT, encoding="utf-8", newline="") as f:
+            cur = f.read()
         if cur != html:
             sys.exit("⚠️ docs.html が docs/*.md と食い違っています。build_docs.py を実行してください。")
         print("差分なし。docs.html は最新です。")
         return
 
-    open(OUT, "w", encoding="utf-8").write(html)
+    with open(OUT, "w", encoding="utf-8", newline="") as f:
+        f.write(html)
     print(f"完了: docs.html を書き出しました ({len(html):,} バイト)")
 
 

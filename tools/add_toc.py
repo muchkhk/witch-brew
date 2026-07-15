@@ -30,6 +30,20 @@ TOC_START = "<!-- TOC -->"
 TOC_END = "<!-- /TOC -->"
 
 
+def read_text(path: str):
+    """(内容, 改行コード) を返す。既存の改行コード('\r\n' か '\n')をファイルごとに検出して保持する。"""
+    with open(path, encoding="utf-8", newline="") as f:
+        raw = f.read()
+    newline = "\r\n" if "\r\n" in raw else "\n"
+    return raw.replace("\r\n", "\n"), newline
+
+
+def write_text(path: str, text: str, newline: str) -> None:
+    """元ファイルの改行コードを保って書き出す(Windowsのtext-modeによる勝手な変換を防ぐ)。"""
+    with open(path, "w", encoding="utf-8", newline=newline) as f:
+        f.write(text)
+
+
 def slugify(text: str) -> str:
     """GitHub 互換のアンカーを生成する。"""
     # マークダウン記法を剥がす
@@ -99,7 +113,7 @@ def build_toc(heads) -> str:
 
 def process(path: str, check_only: bool = False) -> bool:
     """目次を付与/更新する。変更があれば True を返す。"""
-    src = open(path, encoding="utf-8").read()
+    src, newline = read_text(path)
     lines = src.split("\n")
 
     heads = collect_headings(lines)
@@ -135,7 +149,7 @@ def process(path: str, check_only: bool = False) -> bool:
 
     changed = new != src
     if changed and not check_only:
-        open(path, "w", encoding="utf-8").write(new)
+        write_text(path, new, newline)
 
     mark = "更新" if changed else "変更なし"
     print(f"  - {os.path.basename(path)}: {len(heads)} 見出し … {mark}")

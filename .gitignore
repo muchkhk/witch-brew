@@ -12,3 +12,4 @@
 node_modules/
 .firebase-config/
 *-debug.log
+__pycache__/
