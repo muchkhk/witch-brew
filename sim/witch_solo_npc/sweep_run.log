@@ -1,0 +1,18 @@
+結果を sweep_results.json に書き出しました
+マルチ基準(合理NPC3人)を計測中...
+  完了 (74.5s) mean_pct=69.98 shares={'≥92': 0.009, '82-92': 0.116, '70-82': 0.399, '58-70': 0.3815, '<58': 0.0945}
+[1/15] lambda=0.5 tau=small(0.5) A1=False A2=False A3=False B1=True C1=False | t=(59.3/125.3/64.4s)
+[2/15] lambda=0.5 tau=mid(2.0) A1=True A2=False A3=False B1=True C1=False | t=(60.3/124.1/63.6s)
+[3/15] lambda=0.5 tau=large(6.0) A1=True A2=True A3=False B1=True C1=False | t=(59.1/123.8/63.7s)
+[4/15] lambda=0.65 tau=small(0.5) A1=False A2=False A3=False B1=True C1=False | t=(58.7/122.5/63.6s)
+[5/15] lambda=0.65 tau=mid(2.0) A1=False A2=False A3=False B1=True C1=False | t=(60.3/124.9/65.2s)
+[6/15] lambda=0.65 tau=large(6.0) A1=True A2=True A3=False B1=True C1=False | t=(58.9/125.0/64.3s)
+[7/15] lambda=0.8 tau=small(0.5) A1=False A2=False A3=False B1=True C1=False | t=(59.2/123.3/64.3s)
+[8/15] lambda=0.8 tau=mid(2.0) A1=False A2=False A3=False B1=True C1=False | t=(59.3/122.7/63.5s)
+[9/15] lambda=0.8 tau=large(6.0) A1=True A2=True A3=False B1=True C1=False | t=(59.2/122.5/65.2s)
+[10/15] lambda=0.9 tau=small(0.5) A1=False A2=False A3=False B1=True C1=True | t=(58.8/122.2/64.9s)
+[11/15] lambda=0.9 tau=mid(2.0) A1=False A2=False A3=False B1=True C1=False | t=(58.3/121.5/63.2s)
+[12/15] lambda=0.9 tau=large(6.0) A1=True A2=True A3=False B1=True C1=False | t=(57.9/121.1/63.9s)
+[13/15] lambda=1.0 tau=small(0.5) A1=False A2=False A3=False B1=True C1=True | t=(58.6/123.1/63.9s)
+[14/15] lambda=1.0 tau=mid(2.0) A1=False A2=False A3=False B1=True C1=False | t=(58.9/124.7/67.3s)
+[15/15] lambda=1.0 tau=large(6.0) A1=True A2=True A3=False B1=True C1=False | t=(63.4/129.2/69.8s)

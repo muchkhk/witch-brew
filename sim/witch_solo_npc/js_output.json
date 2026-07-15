@@ -1,0 +1,344 @@
+{
+  "scoreRecipe_cases": [
+    {
+      "id": "pair_満星",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 4
+    },
+    {
+      "id": "pair_火霜",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 0
+    },
+    {
+      "id": "pair_影蛇",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 0
+    },
+    {
+      "id": "pair_満火",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 0
+    },
+    {
+      "id": "pair_星影",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 0
+    },
+    {
+      "id": "pair_霜蛇",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 0
+    },
+    {
+      "id": "cnt2_満火",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 5
+    },
+    {
+      "id": "cnt2_影星",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 0
+    },
+    {
+      "id": "cnt2_霜蛇",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 0
+    },
+    {
+      "id": "cnt2_満霜",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 5
+    },
+    {
+      "id": "solo_星",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 3
+    },
+    {
+      "id": "solo_霜",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 0
+    },
+    {
+      "id": "solo_満",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 0
+    },
+    {
+      "id": "solo_火",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 0
+    },
+    {
+      "id": "abs2_影蛇",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 3
+    },
+    {
+      "id": "abs2_火星",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 0
+    },
+    {
+      "id": "abs_影",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 2
+    },
+    {
+      "id": "abs_蛇",
+      "pile": [
+        0,
+        0,
+        3
+      ],
+      "score": 2
+    }
+  ],
+  "scorePile_case": {
+    "hand": [
+      {
+        "id": "pair_満星",
+        "type": "pair",
+        "a": 0,
+        "b": 3,
+        "pt": 4
+      },
+      {
+        "id": "cnt2_満火",
+        "type": "cnt2",
+        "a": 0,
+        "b": 1,
+        "pt": 5
+      },
+      {
+        "id": "abs_影",
+        "type": "abs",
+        "a": 2,
+        "pt": 2
+      }
+    ],
+    "pile": [
+      1,
+      4,
+      5
+    ],
+    "score": 2
+  },
+  "dealConflicts_cases": [
+    {
+      "ids": [
+        "abs_影",
+        "pair_影蛇"
+      ],
+      "expect_conflict": true,
+      "actual": true
+    },
+    {
+      "ids": [
+        "abs_影",
+        "solo_満"
+      ],
+      "expect_conflict": false,
+      "actual": false
+    }
+  ],
+  "cutSets_9_2_count": 28,
+  "toPiles_case": {
+    "band": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      0,
+      1,
+      2
+    ],
+    "cuts": [
+      3,
+      6
+    ],
+    "piles": [
+      [
+        0,
+        1,
+        2
+      ],
+      [
+        3,
+        4,
+        5
+      ],
+      [
+        0,
+        1,
+        2
+      ]
+    ]
+  },
+  "chooseOrder_cases": [
+    {
+      "cutter": 0,
+      "n": 3,
+      "order": [
+        1,
+        2
+      ]
+    },
+    {
+      "cutter": 1,
+      "n": 3,
+      "order": [
+        2,
+        0
+      ]
+    },
+    {
+      "cutter": 2,
+      "n": 4,
+      "order": [
+        3,
+        0,
+        1
+      ]
+    }
+  ],
+  "omniMax_case": {
+    "band": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      0,
+      1,
+      2
+    ],
+    "omni": 17
+  },
+  "bestForCut_case": {
+    "band": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      0,
+      1,
+      2
+    ],
+    "cuts": [
+      3,
+      6
+    ],
+    "best": 7
+  },
+  "bestForCut_case2": {
+    "band": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      0,
+      1,
+      2
+    ],
+    "cuts": [
+      2,
+      5
+    ],
+    "best": 11
+  },
+  "bestForCut_case3": {
+    "band": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      0,
+      1,
+      2
+    ],
+    "cuts": [
+      1,
+      4
+    ],
+    "best": 12
+  }
+}

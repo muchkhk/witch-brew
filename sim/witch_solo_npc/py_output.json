@@ -1,0 +1,154 @@
+{
+  "scoreRecipe_cases": [
+    {
+      "id": "pair_満星",
+      "score": 4
+    },
+    {
+      "id": "pair_火霜",
+      "score": 0
+    },
+    {
+      "id": "pair_影蛇",
+      "score": 0
+    },
+    {
+      "id": "pair_満火",
+      "score": 0
+    },
+    {
+      "id": "pair_星影",
+      "score": 0
+    },
+    {
+      "id": "pair_霜蛇",
+      "score": 0
+    },
+    {
+      "id": "cnt2_満火",
+      "score": 5
+    },
+    {
+      "id": "cnt2_影星",
+      "score": 0
+    },
+    {
+      "id": "cnt2_霜蛇",
+      "score": 0
+    },
+    {
+      "id": "cnt2_満霜",
+      "score": 5
+    },
+    {
+      "id": "solo_星",
+      "score": 3
+    },
+    {
+      "id": "solo_霜",
+      "score": 0
+    },
+    {
+      "id": "solo_満",
+      "score": 0
+    },
+    {
+      "id": "solo_火",
+      "score": 0
+    },
+    {
+      "id": "abs2_影蛇",
+      "score": 3
+    },
+    {
+      "id": "abs2_火星",
+      "score": 0
+    },
+    {
+      "id": "abs_影",
+      "score": 2
+    },
+    {
+      "id": "abs_蛇",
+      "score": 2
+    }
+  ],
+  "scorePile_case": {
+    "score": 2
+  },
+  "dealConflicts_cases": [
+    {
+      "ids": [
+        "abs_影",
+        "pair_影蛇"
+      ],
+      "actual": true
+    },
+    {
+      "ids": [
+        "abs_影",
+        "solo_満"
+      ],
+      "actual": false
+    }
+  ],
+  "cutSets_9_2_count": 28,
+  "toPiles_case": {
+    "piles": [
+      [
+        0,
+        1,
+        2
+      ],
+      [
+        3,
+        4,
+        5
+      ],
+      [
+        0,
+        1,
+        2
+      ]
+    ]
+  },
+  "chooseOrder_cases": [
+    {
+      "cutter": 0,
+      "n": 3,
+      "order": [
+        1,
+        2
+      ]
+    },
+    {
+      "cutter": 1,
+      "n": 3,
+      "order": [
+        2,
+        0
+      ]
+    },
+    {
+      "cutter": 2,
+      "n": 4,
+      "order": [
+        3,
+        0,
+        1
+      ]
+    }
+  ],
+  "omniMax_case": {
+    "omni": 17
+  },
+  "bestForCut_case": {
+    "best": 7
+  },
+  "bestForCut_case2": {
+    "best": 11
+  },
+  "bestForCut_case3": {
+    "best": 12
+  }
+}
