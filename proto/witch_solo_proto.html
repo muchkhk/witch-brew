@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>魔女の調合 ― ソロ試作（タイプ開示NPC）</title>
+<style>
+  :root{
+    --night:#1a1526;--night2:#251d38;--night3:#31264a;--candle:#e8b45a;--candle-soft:#f5d89a;
+    --ink:#f2eefa;--muted:#a69dc7;--line:#493d68;--good:#84e0ac;--bad:#ef9494;
+    --m0:#86c96f;--m1:#e5745a;--m2:#b183d6;--m3:#f0d165;--m4:#79cbe4;--m5:#6a9a7c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,"Hiragino Sans","Yu Gothic",sans-serif;background:var(--night);color:var(--ink);line-height:1.6}
+  .wrap{max-width:760px;margin:0 auto;padding:16px 14px 60px}
+  h1{font-size:19px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .panel{background:var(--night2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .spread{justify-content:space-between}
+  button{background:var(--night3);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer}
+  button:hover{border-color:var(--candle)}
+  button:disabled{opacity:.4;cursor:default}
+  button.primary{background:var(--candle);color:#241a0c;border-color:var(--candle);font-weight:700}
+  button.ghost{background:transparent}
+  input[type=text]{background:var(--night3);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+  .eyebrow{color:var(--candle-soft);font-size:12px;letter-spacing:.06em;margin-bottom:6px}
+  .kv{font-size:13px;color:var(--muted)}
+  .tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;border:1px solid var(--line);margin-right:4px}
+  .npcCard{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px}
+  .npcCard.turn{border-color:var(--candle)}
+  .npcName{font-weight:700;font-size:14px}
+  .npcType{color:var(--candle-soft);font-size:12px}
+  .npcDesc{color:var(--muted);font-size:12px;margin-top:2px}
+  .gem{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;font-size:18px;margin:2px;color:#1a1526;font-weight:700}
+  .band{display:flex;flex-wrap:wrap;align-items:center;padding:8px;background:var(--night3);border-radius:10px}
+  .cutgap{width:14px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
+  .cutgap.active{color:var(--candle);font-weight:700}
+  .pile{display:inline-flex;flex-wrap:wrap;padding:6px;border:2px solid var(--line);border-radius:10px;margin:4px;cursor:pointer;min-height:44px;align-items:center}
+  .pile:hover{border-color:var(--candle)}
+  .pile.taken{opacity:.35;cursor:default}
+  .recipeList{display:flex;flex-direction:column;gap:4px}
+  .recipeItem{font-size:13px;padding:4px 8px;background:var(--night3);border-radius:6px}
+  .logEntry{font-size:12px;color:var(--muted);border-bottom:1px dashed var(--line);padding:6px 0}
+  .toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  #banner{position:fixed;top:0;left:0;right:0;z-index:999}
+  .errbar{background:var(--bad);color:#3a0f0f;padding:8px 14px;text-align:center;font-size:13px}
+  #verbadge{position:fixed;right:8px;bottom:7px;font:10px/1.4 system-ui,sans-serif;color:#5f6675;opacity:.75}
+  a#homelink{position:fixed;left:8px;bottom:6px;font:11px/1.5 system-ui,sans-serif;color:#8e97a8;text-decoration:none;
+    background:rgba(26,30,38,.9);border:1px solid #39404f;border-radius:9px;padding:5px 11px}
+</style>
+</head>
+<body>
+<div id="banner"></div>
+<div class="wrap">
+  <h1>🧪 魔女の調合 ― ソロ試作（タイプ開示NPC）</h1>
+  <p class="sub">人間テスト用の使い捨てプロトタイプ。Firebase不使用・witch.html本体とは無関係。</p>
+  <div id="app"></div>
+</div>
+<a id="homelink" href="README.md" title="README">📄 README</a>
+<div id="verbadge">witch_solo_proto v1.0</div>
+
+<script>
+/* ============================================================
+   凍結コアロジック（sim/witch_solo_npc/core_logic.js より流用・無改変）
+   ============================================================ */
+const MAT=[{name:"満月草",icon:"🌙",color:"var(--m0)"},{name:"火竜の鱗",icon:"🔥",color:"var(--m1)"},{name:"影茸",icon:"🍄",color:"var(--m2)"},{name:"星屑",icon:"✨",color:"var(--m3)"},{name:"霜結晶",icon:"❄️",color:"var(--m4)"},{name:"蛇毒",icon:"🐍",color:"var(--m5)"}];
+const POOL=[
+ {id:"pair_満星",type:"pair",a:0,b:3,pt:4},{id:"pair_火霜",type:"pair",a:1,b:4,pt:4},{id:"pair_影蛇",type:"pair",a:2,b:5,pt:4},
+ {id:"pair_満火",type:"pair",a:0,b:1,pt:4},{id:"pair_星影",type:"pair",a:3,b:2,pt:4},{id:"pair_霜蛇",type:"pair",a:4,b:5,pt:4},
+ {id:"cnt2_満火",type:"cnt2",a:0,b:1,pt:5},{id:"cnt2_影星",type:"cnt2",a:2,b:3,pt:5},{id:"cnt2_霜蛇",type:"cnt2",a:4,b:5,pt:5},{id:"cnt2_満霜",type:"cnt2",a:0,b:4,pt:5},
+ {id:"solo_星",type:"solo",a:3,pt:3},{id:"solo_霜",type:"solo",a:4,pt:3},{id:"solo_満",type:"solo",a:0,pt:3},{id:"solo_火",type:"solo",a:1,pt:3},
+ {id:"abs2_影蛇",type:"abs2",a:2,b:5,pt:3},{id:"abs2_火星",type:"abs2",a:1,b:3,pt:3},
+ {id:"abs_影",type:"abs",a:2,pt:2},{id:"abs_蛇",type:"abs",a:5,pt:2}];
+const byId=id=>POOL.find(r=>r.id===id);
+const TYPE={pair:{jp:"同居",icon:"🤝"},cnt2:{jp:"個数",icon:"🔢"},solo:{jp:"単体",icon:"1️⃣"},abs2:{jp:"二種忌避",icon:"⛔"},abs:{jp:"忌避",icon:"🚫"},hard:{jp:"秘伝",icon:"🌟"}};
+const HARD=[
+ {id:"H_火2蛇無",type:"hard",a:1,b:5,pt:10},{id:"H_影2満無",type:"hard",a:2,b:0,pt:10},{id:"H_星2霜無",type:"hard",a:3,b:4,pt:10},
+ {id:"H_霜2影無",type:"hard",a:4,b:2,pt:10},{id:"H_満2星無",type:"hard",a:0,b:3,pt:10},{id:"H_蛇2火無",type:"hard",a:5,b:1,pt:10}];
+const byIdAny=id=>POOL.find(r=>r.id===id)||HARD.find(r=>r.id===id);
+function recipeMats(r){return (r.type==="pair"||r.type==="cnt2"||r.type==="abs2"||r.type==="hard")?[r.a,r.b]:[r.a];}
+function recipeText(r){const m=i=>`${MAT[i].icon}${MAT[i].name}`;
+  if(r.type==="pair")return `${m(r.a)} と ${m(r.b)} を同じ坩堝に`;
+  if(r.type==="cnt2")return `${m(r.a)} を2つ以上、または ${m(r.b)} を2つ以上`;
+  if(r.type==="solo")return `${m(r.a)} をちょうど1つ`;
+  if(r.type==="abs2")return `${m(r.a)} と ${m(r.b)} を両方入れない`;
+  if(r.type==="hard")return `${m(r.a)} を2つ以上、かつ ${m(r.b)} を入れない`;
+  return `${m(r.a)} を入れない`;}
+function scoreRecipe(r,pile){const c=x=>pile.filter(m=>m===x).length;
+  if(r.type==="pair")return (c(r.a)>=1&&c(r.b)>=1)?r.pt:0;
+  if(r.type==="cnt2")return (c(r.a)>=2||c(r.b)>=2)?r.pt:0;
+  if(r.type==="solo")return c(r.a)===1?r.pt:0;
+  if(r.type==="abs2")return (c(r.a)===0&&c(r.b)===0)?r.pt:0;
+  if(r.type==="abs")return c(r.a)===0?r.pt:0;
+  if(r.type==="hard")return (c(r.a)>=2&&c(r.b)===0)?r.pt:0;
+  return 0;}
+function scorePile(rs,p){return rs.reduce((s,r)=>s+scoreRecipe(r,p),0);}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
+function comb(a,k){const r=[];(function rec(s,c){if(c.length===k){r.push(c.slice());return;}for(let i=s;i<a.length;i++){c.push(a[i]);rec(i+1,c);c.pop();}})(0,[]);return r;}
+function permA(a){if(a.length<=1)return[a];const res=[];a.forEach((v,i)=>{const rest=[...a.slice(0,i),...a.slice(i+1)];permA(rest).forEach(p=>res.push([v,...p]));});return res;}
+function makeBand(n){const bag=[];for(let m=0;m<6;m++)for(let k=0;k<3;k++)bag.push(m);return shuffle(bag).slice(0,n*3);}
+function cutSets(len,nc){return comb([...Array(len-1).keys()].map(i=>i+1),nc);}
+function toPiles(b,cs){const s=cs.slice().sort((a,b)=>a-b);const pts=[0,...s,b.length];const pl=[];for(let i=0;i<pts.length-1;i++)pl.push(b.slice(pts[i],pts[i+1]));return pl;}
+function E_sb(p){let s=0;for(const r of POOL)s+=scoreRecipe(r,p);return 3*s/POOL.length;}
+function dealConflicts(ch){const a=new Set(),w=new Set();for(const i of ch){const r=POOL[i];
+  if(r.type==="abs")a.add(r.a); if(r.type==="abs2"){a.add(r.a);a.add(r.b);}
+  if(r.type==="pair"||r.type==="cnt2"){w.add(r.a);w.add(r.b);} if(r.type==="solo")w.add(r.a);}
+  for(const m of a)if(w.has(m))return true;return false;}
+function dealRecipeIds(n){for(let t=0;t<600;t++){const c=shuffle(POOL.map((_,i)=>i)).slice(0,n*3);if(!dealConflicts(c))return Array.from({length:n},(_,p)=>c.slice(p*3,p*3+3).map(i=>POOL[i].id));}const c=shuffle(POOL.map((_,i)=>i)).slice(0,n*3);return Array.from({length:n},(_,p)=>c.slice(p*3,p*3+3).map(i=>POOL[i].id));}
+function omniMax(band,players){const n=players.length;let best=-1e9;for(const cs of cutSets(band.length,n-1)){const piles=toPiles(band,cs);for(const pm of permA([...Array(n).keys()])){let t=0;for(let i=0;i<n;i++)t+=scorePile(players[pm[i]],piles[i]);if(t>best)best=t;}}return best;}
+function bestForCut(band,cuts,players){const n=players.length;const piles=toPiles(band,cuts);let best=-1e9;
+  for(const pm of permA([...Array(n).keys()])){let t=0;for(let i=0;i<n;i++)t+=scorePile(players[pm[i]],piles[i]);if(t>best)best=t;}
+  return best;}
+function seenBy(i,j,pl,pile){return i===j?scorePile(pl[j],pile):E_sb(pile);}
+function bestAssign(ch,pi,idx,pl){let b=-1e9;for(const P of permA([...Array(idx.length).keys()])){let t=0;for(let k=0;k<idx.length;k++)t+=seenBy(ch,idx[k],pl,pi[P[k]]);if(t>b)b=t;}return b;}
+function seqChoose(pi,pl,ct){const n=pl.length;const o=[];for(let i=0;i<n;i++){const x=(ct+1+i)%n;if(x!==ct)o.push(x);}let av=pi.map((p,i)=>({p,i}));const as={};for(let oi=0;oi<o.length;oi++){const me=o[oi];const ot=[...o.slice(oi+1),ct];let bv=-1e9,bp=null;for(const c of av){const rt=av.filter(x=>x.i!==c.i).map(x=>x.p);const lk=rt.length===ot.length?bestAssign(me,rt,ot,pl):0;const v=seenBy(me,me,pl,c.p)+lk;if(v>bv){bv=v;bp=c;}}as[me]=bp;av=av.filter(x=>x.i!==bp.i);}as[ct]=av[0];return as;}
+function rationalReach(band,pl,ct){const n=pl.length;let bA=null,bE=-1e9;for(const cs of cutSets(band.length,n-1)){const piles=toPiles(band,cs);const asg=seqChoose(piles,pl,ct);let e=0;for(let i=0;i<n;i++)e+=seenBy(ct,i,pl,asg[i].p);if(e>bE){bE=e;bA=asg;}}let a=0;for(let i=0;i<n;i++)a+=scorePile(pl[i],bA[i].p);return a;}
+function chooseOrder(cutter,n){const o=[];for(let i=0;i<n;i++){const idx=(cutter+1+i)%n;if(idx!==cutter)o.push(idx);}return o;}
+</script>
+
+<script>
+/* ============================================================
+   NPC方策・推定エンジン（sim/witch_solo_npc/proto/engine_draft.js より流用・無改変。
+   Python版(solo_npc_sim.py + solo_npc_sim_v3.py)との同値性を9/9系列で検証済み。
+   ============================================================ */
+function combinations(arr, k) {
+  const res = [];
+  (function rec(start, cur) {
+    if (cur.length === k) { res.push(cur.slice()); return; }
+    for (let i = start; i < arr.length; i++) { cur.push(arr[i]); rec(i + 1, cur); cur.pop(); }
+  })(0, []);
+  return res;
+}
+
+const ALL_HAND_INDICES = combinations([...Array(18).keys()], 3);
+const N_HANDS = ALL_HAND_INDICES.length;
+const HAND_TO_ROW = new Map(ALL_HAND_INDICES.map((h, i) => [h.join(','), i]));
+
+function handKey(h) { return h.slice().sort((a, b) => a - b).join(','); }
+function handRow(h) { return HAND_TO_ROW.get(handKey(h)); }
+
+function recipeScoresVector(pile) {
+  const v = new Float64Array(18);
+  for (let i = 0; i < 18; i++) v[i] = scoreRecipe(POOL[i], pile);
+  return v;
+}
+function allHandScoresForPile(pile) {
+  const rv = recipeScoresVector(pile);
+  const out = new Float64Array(N_HANDS);
+  for (let h = 0; h < N_HANDS; h++) {
+    const idx = ALL_HAND_INDICES[h];
+    out[h] = rv[idx[0]] + rv[idx[1]] + rv[idx[2]];
+  }
+  return out;
+}
+
+function softmax1D(utilities, tau) {
+  const k = utilities.length;
+  const out = new Float64Array(k);
+  if (tau <= 1e-9) {
+    let bi = 0, bv = -Infinity;
+    for (let i = 0; i < k; i++) if (utilities[i] > bv) { bv = utilities[i]; bi = i; }
+    out[bi] = 1.0;
+    return out;
+  }
+  let mx = -Infinity;
+  for (let i = 0; i < k; i++) { const u = utilities[i] / tau; if (u > mx) mx = u; }
+  let sum = 0;
+  for (let i = 0; i < k; i++) { const e = Math.exp(utilities[i] / tau - mx); out[i] = e; sum += e; }
+  for (let i = 0; i < k; i++) out[i] /= sum;
+  return out;
+}
+
+function normalizedWeights(beliefLogW) {
+  let mx = -Infinity;
+  for (let i = 0; i < N_HANDS; i++) if (beliefLogW[i] > mx) mx = beliefLogW[i];
+  const w = new Float64Array(N_HANDS);
+  let sum = 0;
+  for (let i = 0; i < N_HANDS; i++) { const e = Math.exp(beliefLogW[i] - mx); w[i] = e; sum += e; }
+  for (let i = 0; i < N_HANDS; i++) w[i] /= sum;
+  return w;
+}
+
+function expectedValueVector(beliefLogW, pile) {
+  const w = normalizedWeights(beliefLogW);
+  const scores = allHandScoresForPile(pile);
+  let s = 0;
+  for (let i = 0; i < N_HANDS; i++) s += w[i] * scores[i];
+  return s;
+}
+
+const LOG_1_20 = Math.log(1 / 20);
+function candidateCount(beliefLogW) {
+  let mx = -Infinity;
+  for (let i = 0; i < N_HANDS; i++) if (beliefLogW[i] > mx) mx = beliefLogW[i];
+  let c = 0;
+  for (let i = 0; i < N_HANDS; i++) if (beliefLogW[i] >= mx + LOG_1_20) c++;
+  return c;
+}
+
+function permutations(arr) {
+  if (arr.length <= 1) return [arr];
+  const res = [];
+  arr.forEach((v, i) => {
+    const rest = arr.slice(0, i).concat(arr.slice(i + 1));
+    permutations(rest).forEach(p => res.push([v, ...p]));
+  });
+  return res;
+}
+const PERMS = { 3: permutations([0, 1, 2]), 4: permutations([0, 1, 2, 3]) };
+
+function bestAssignmentValue(pilesArrays, beliefs, selfIdx, selfHand) {
+  const n = pilesArrays.length;
+  const selfScores = pilesArrays.map(p => scorePile(selfHand.map(i => POOL[i]), p));
+  const otherScores = [];
+  for (let j = 0; j < n; j++) {
+    if (j === selfIdx) { otherScores.push(null); continue; }
+    otherScores.push(pilesArrays.map(p => expectedValueVector(beliefs[j], p)));
+  }
+  let best = -1e18;
+  for (const perm of PERMS[n]) {
+    let total = 0;
+    for (let pileI = 0; pileI < n; pileI++) {
+      const playerSlot = perm[pileI];
+      total += (playerSlot === selfIdx) ? selfScores[pileI] : otherScores[playerSlot][pileI];
+    }
+    if (total > best) best = total;
+  }
+  return best;
+}
+
+function bestAssignmentValueHypothesisVector(pilesArrays, beliefs, selfIdx) {
+  const n = pilesArrays.length;
+  const selfScoresPerPile = pilesArrays.map(p => allHandScoresForPile(p));
+  const otherScores = [];
+  for (let j = 0; j < n; j++) {
+    if (j === selfIdx) { otherScores.push(null); continue; }
+    otherScores.push(pilesArrays.map(p => expectedValueVector(beliefs[j], p)));
+  }
+  const best = new Float64Array(N_HANDS).fill(-1e18);
+  for (const perm of PERMS[n]) {
+    const total = new Float64Array(N_HANDS);
+    for (let pileI = 0; pileI < n; pileI++) {
+      const playerSlot = perm[pileI];
+      if (playerSlot === selfIdx) {
+        const sc = selfScoresPerPile[pileI];
+        for (let h = 0; h < N_HANDS; h++) total[h] += sc[h];
+      } else {
+        const v = otherScores[playerSlot][pileI];
+        for (let h = 0; h < N_HANDS; h++) total[h] += v;
+      }
+    }
+    for (let h = 0; h < N_HANDS; h++) if (total[h] > best[h]) best[h] = total[h];
+  }
+  return best;
+}
+
+function npcCutDecision(band, n, cutter, trueHands, beliefs, policy, rngNext) {
+  const candidates = cutSets(band.length, n - 1);
+  const ebas = new Float64Array(candidates.length);
+  for (let ci = 0; ci < candidates.length; ci++) {
+    const piles = toPiles(band, candidates[ci]);
+    ebas[ci] = bestAssignmentValue(piles, beliefs, cutter, trueHands[cutter]);
+  }
+  const probs = softmax1D(ebas, policy.tau);
+  const choice = rngNext(probs);
+  return { chosenCutset: candidates[choice], candidates };
+}
+
+function updateBeliefForCut(beliefs, cutter, band, n, chosenCutset, candidates, tau) {
+  const logLiksByCs = [];
+  for (const cs of candidates) {
+    const piles = toPiles(band, cs);
+    logLiksByCs.push(bestAssignmentValueHypothesisVector(piles, beliefs, cutter));
+  }
+  const T = candidates.length;
+  const chosenIdx = candidates.findIndex(cs => cs.length === chosenCutset.length && cs.every((v, i) => v === chosenCutset[i]));
+  for (let h = 0; h < N_HANDS; h++) {
+    const utilH = new Float64Array(T);
+    for (let ci = 0; ci < T; ci++) utilH[ci] = logLiksByCs[ci][h];
+    const probsH = softmax1D(utilH, tau);
+    const lik = Math.max(probsH[chosenIdx], 1e-300);
+    beliefs[cutter][h] += Math.log(lik);
+  }
+}
+
+function teamScoresForChoice(availablePiles, futurePlayers, beliefs) {
+  const k = availablePiles.length;
+  const teamScores = new Float64Array(k);
+  if (futurePlayers.length > 0 && k > 1) {
+    for (let takenI = 0; takenI < k; takenI++) {
+      const remaining = availablePiles.filter((_, i) => i !== takenI);
+      const m = remaining.length;
+      if (m === 0) continue;
+      let best = -1e18;
+      for (const perm of (PERMS[m] || permutations([...Array(m).keys()]))) {
+        let total = 0;
+        for (let pileI = 0; pileI < m; pileI++) {
+          const p = futurePlayers[perm[pileI]];
+          total += expectedValueVector(beliefs[p], remaining[pileI]);
+        }
+        if (total > best) best = total;
+      }
+      teamScores[takenI] = best;
+    }
+  }
+  return teamScores;
+}
+
+function whimBiasSelfScores(trueHand, whim, piles, w) {
+  return piles.map(p => {
+    const base = scorePile(trueHand.map(i => POOL[i]), p);
+    let whimScore = 0;
+    for (const c of whim) whimScore += scoreRecipe(POOL[c], p);
+    return base + w * whimScore;
+  });
+}
+
+function npcChooseDecisionWhim(availablePiles, trueHand, whim, w, futurePlayers, beliefs, policy, rngNext) {
+  const selfScores = whimBiasSelfScores(trueHand, whim, availablePiles, w);
+  const teamScores = teamScoresForChoice(availablePiles, futurePlayers, beliefs);
+  const k = availablePiles.length;
+  const utility = new Float64Array(k);
+  for (let i = 0; i < k; i++) utility[i] = policy.lam * selfScores[i] + (1 - policy.lam) * teamScores[i];
+  const probs = softmax1D(utility, policy.tau);
+  return rngNext(probs);
+}
+
+function npcChooseDecisionPlain(availablePiles, trueHand, futurePlayers, beliefs, policy, rngNext) {
+  const k = availablePiles.length;
+  const selfScores = availablePiles.map(p => scorePile(trueHand.map(i => POOL[i]), p));
+  const teamScores = teamScoresForChoice(availablePiles, futurePlayers, beliefs);
+  const utility = new Float64Array(k);
+  for (let i = 0; i < k; i++) utility[i] = policy.lam * selfScores[i] + (1 - policy.lam) * teamScores[i];
+  const probs = softmax1D(utility, policy.tau);
+  return rngNext(probs);
+}
+
+function updateBeliefForChoicePlain(beliefs, chooser, availablePiles, chosenIdx, futurePlayers, policy) {
+  const k = availablePiles.length;
+  const handScores = availablePiles.map(p => allHandScoresForPile(p));
+  const teamScores = teamScoresForChoice(availablePiles, futurePlayers, beliefs);
+  for (let h = 0; h < N_HANDS; h++) {
+    const utilH = new Float64Array(k);
+    for (let i = 0; i < k; i++) utilH[i] = policy.lam * handScores[i][h] + (1 - policy.lam) * teamScores[i];
+    const probsH = softmax1D(utilH, policy.tau);
+    const lik = Math.max(probsH[chosenIdx], 1e-300);
+    beliefs[chooser][h] += Math.log(lik);
+  }
+}
+
+const ALL_WHIM_TUPLES = { 1: combinations([...Array(18).keys()], 1), 2: combinations([...Array(18).keys()], 2) };
+function buildValidMask(q) {
+  const tuples = ALL_WHIM_TUPLES[q];
+  const mask = [];
+  for (let h = 0; h < N_HANDS; h++) {
+    const hs = new Set(ALL_HAND_INDICES[h]);
+    const row = new Uint8Array(tuples.length);
+    for (let ti = 0; ti < tuples.length; ti++) {
+      row[ti] = tuples[ti].every(c => !hs.has(c)) ? 1 : 0;
+    }
+    mask.push(row);
+  }
+  return mask;
+}
+const WHIM_VALID_MASK = { 1: buildValidMask(1), 2: buildValidMask(2) };
+function nChooseK(n, k) { let r = 1; for (let i = 0; i < k; i++) r = r * (n - i) / (i + 1); return Math.round(r); }
+const WHIM_VALID_COUNT = { 1: nChooseK(15, 1), 2: nChooseK(15, 2) };
+
+function marginalizedUpdateBeliefForChoice(beliefs, chooser, availablePiles, chosenIdx, futurePlayers, policy, whimParams) {
+  const { q, w } = whimParams;
+  const k = availablePiles.length;
+  const handScores = availablePiles.map(p => allHandScoresForPile(p));
+  const recipeScores = availablePiles.map(p => recipeScoresVector(p));
+  const tuples = ALL_WHIM_TUPLES[q];
+  const T = tuples.length;
+  const whimContrib = [];
+  for (let ti = 0; ti < T; ti++) {
+    const row = new Float64Array(k);
+    for (const c of tuples[ti]) for (let i = 0; i < k; i++) row[i] += recipeScores[i][c];
+    whimContrib.push(row);
+  }
+  const teamScores = teamScoresForChoice(availablePiles, futurePlayers, beliefs);
+  const validCount = WHIM_VALID_COUNT[q];
+
+  for (let h = 0; h < N_HANDS; h++) {
+    const maskRow = WHIM_VALID_MASK[q][h];
+    let Lsum = 0;
+    for (let ti = 0; ti < T; ti++) {
+      if (!maskRow[ti]) continue;
+      const utilHT = new Float64Array(k);
+      for (let i = 0; i < k; i++) {
+        utilHT[i] = policy.lam * (handScores[i][h] + w * whimContrib[ti][i]) + (1 - policy.lam) * teamScores[i];
+      }
+      const probs = softmax1D(utilHT, policy.tau);
+      Lsum += probs[chosenIdx];
+    }
+    const L = Lsum / validCount;
+    beliefs[chooser][h] += Math.log(Math.max(L, 1e-300));
+  }
+}
+
+function updateBeliefForTeamTotal(beliefs, n, pilesBySeat, teamTotal) {
+  const MAXSCORE = 40;
+  const scoreDists = [];
+  const allScoresByP = [];
+  for (let p = 0; p < n; p++) {
+    const scores = allHandScoresForPile(pilesBySeat[p]);
+    allScoresByP.push(scores);
+    const w = normalizedWeights(beliefs[p]);
+    const dist = new Float64Array(MAXSCORE + 1);
+    for (let h = 0; h < N_HANDS; h++) {
+      const s = Math.round(scores[h]);
+      if (s >= 0 && s <= MAXSCORE) dist[s] += w[h];
+    }
+    scoreDists.push(dist);
+  }
+  for (let target = 0; target < n; target++) {
+    let conv = new Float64Array([1.0]);
+    for (let q = 0; q < n; q++) {
+      if (q === target) continue;
+      conv = convolve(conv, scoreDists[q]);
+    }
+    const targetScores = allScoresByP[target];
+    for (let h = 0; h < N_HANDS; h++) {
+      const required = Math.round(teamTotal - targetScores[h]);
+      const lik = (required >= 0 && required < conv.length) ? conv[required] : 0;
+      beliefs[target][h] += Math.log(Math.max(lik, 1e-12));
+    }
+  }
+}
+function convolve(a, b) {
+  const out = new Float64Array(a.length + b.length - 1);
+  for (let i = 0; i < a.length; i++) for (let j = 0; j < b.length; j++) out[i + j] += a[i] * b[j];
+  return out;
+}
+
+/* 一様乱数によるソフトマックス確率からのサンプリング（ブラウザのMath.randomを使用） */
+function rngSample(probs) {
+  const r = Math.random();
+  let acc = 0;
+  for (let i = 0; i < probs.length; i++) {
+    acc += probs[i];
+    if (r <= acc) return i;
+  }
+  return probs.length - 1;
+}
+</script>
+
+<script>
+/* ============================================================
+   ゲーム進行・UI
+   ============================================================ */
+const PROTO_VER = "1.0";
+const WHIM_TAU = 0.3;
+const N = 3;              // プレイヤー1＋NPC2固定
+const ROUNDS = N * 2;      // 6儀式
+const PLAYER_SEAT = 0;
+const CONSISTENT_POLICY = { lam: 1.0, tau: WHIM_TAU }; // 人間プレイヤーの信念更新に使う仮定ポリシー(v1〜v3の「一貫プレイヤー」と同一)
+
+// v3計測済み8組から選定（パラメータ値の変更は禁止）
+const NPC_TYPES = [
+  { key: "mira", name: "ミラ", label: "世話焼き", lam: 0.65, q: 1, w: 0.5,
+    desc: "仲間の様子をよく見て、自分は後回しにしがち" },
+  { key: "zora", name: "ゾラ", label: "欲張り", lam: 0.8, q: 1, w: 0.5,
+    desc: "自分の欲しいものにまっすぐ。分かりやすい" },
+  { key: "lu", name: "ルゥ", label: "気分屋", lam: 0.65, q: 2, w: 1.0,
+    desc: "その日の気分で妙なものを欲しがることがある" },
+];
+
+let ST = { view: "setup", showTypes: true, playerName: "", npcTypeKeys: ["mira", "zora"] };
+let G = null; // ゲーム進行状態(startGame()で初期化)
+let errorMsg = "";
+
+function showError(msg) { errorMsg = msg; renderBanner(); setTimeout(() => { errorMsg = ""; renderBanner(); }, 6000); }
+function renderBanner() {
+  document.getElementById("banner").innerHTML = errorMsg ? `<div class="errbar">⚠️ ${errorMsg}</div>` : "";
+}
+
+function drawWhim(hand, q) {
+  const pool = [...Array(18).keys()].filter(i => !hand.includes(i));
+  const picked = [];
+  const copy = pool.slice();
+  for (let i = 0; i < q; i++) {
+    const idx = Math.floor(Math.random() * copy.length);
+    picked.push(copy[idx]);
+    copy.splice(idx, 1);
+  }
+  return picked.sort((a, b) => a - b);
+}
+
+function startGame() {
+  const npcDefs = ST.npcTypeKeys.map(k => NPC_TYPES.find(t => t.key === k));
+  const idsBySeat = dealRecipeIds(N).map(ids => ids.map(id => POOL.findIndex(r => r.id === id)));
+
+  const policies = [CONSISTENT_POLICY, { lam: npcDefs[0].lam, tau: WHIM_TAU }, { lam: npcDefs[1].lam, tau: WHIM_TAU }];
+  const whimParams = [null, { q: npcDefs[0].q, w: npcDefs[0].w }, { q: npcDefs[1].q, w: npcDefs[1].w }];
+  const whims = [null, drawWhim(idsBySeat[1], npcDefs[0].q), drawWhim(idsBySeat[2], npcDefs[1].q)];
+  const names = [ST.playerName || "あなた", npcDefs[0].name, npcDefs[1].name];
+  const npcMeta = [null, npcDefs[0], npcDefs[1]];
+
+  G = {
+    round: 1, cutter: 0, teamTotal: 0,
+    hands: idsBySeat, policies, whimParams, whims, names, npcMeta,
+    beliefs: Array.from({ length: N }, () => new Float64Array(N_HANDS)),
+    band: makeBand(N), phase: "cut", cuts: [], candidateCuts: null,
+    piles: null, assign: {}, chooseOrder: null, chooseIdx: 0,
+    log: [], omniSum: 0,
+  };
+  ST.view = "game";
+  render();
+  maybeAutoAct();
+}
+
+function myHandTexts() {
+  return G.hands[PLAYER_SEAT].map(i => byId(POOL[i].id)).map(r => ({ r, text: recipeText(r), type: r.type }));
+}
+
+/* ---------- 切り(カット)フェーズ ---------- */
+function toggleCutPoint(pos) {
+  if (G.phase !== "cut" || G.cutter !== PLAYER_SEAT) return;
+  const i = G.cuts.indexOf(pos);
+  if (i >= 0) G.cuts.splice(i, 1);
+  else if (G.cuts.length < N - 1) G.cuts.push(pos);
+  render();
+}
+function confirmPlayerCut() {
+  if (G.cuts.length !== N - 1) { showError("あと" + (N - 1 - G.cuts.length) + "か所、区切りを選んでください。"); return; }
+  const chosenCutset = G.cuts.slice().sort((a, b) => a - b);
+  const candidates = cutSets(G.band.length, N - 1);
+  updateBeliefForCut(G.beliefs, PLAYER_SEAT, G.band, N, chosenCutset, candidates, CONSISTENT_POLICY.tau);
+  applyCut(chosenCutset);
+}
+function npcDoCut() {
+  const cutter = G.cutter;
+  const { chosenCutset, candidates } = npcCutDecision(G.band, N, cutter, G.hands, G.beliefs, G.policies[cutter], rngSample);
+  updateBeliefForCut(G.beliefs, cutter, G.band, N, chosenCutset, candidates, G.policies[cutter].tau);
+  applyCut(chosenCutset);
+}
+function applyCut(chosenCutset) {
+  G.piles = toPiles(G.band, chosenCutset);
+  G.assign = {};
+  G.chooseOrder = chooseOrder(G.cutter, N);
+  G.chooseIdx = 0;
+  G.phase = "choose";
+  G.log.push({ type: "cut", cutter: G.cutter, cuts: chosenCutset, piles: G.piles.map(p => p.slice()) });
+  render();
+  maybeAutoAct();
+}
+
+/* ---------- 選択フェーズ ---------- */
+function availablePileIdxs() {
+  const n = G.piles.length;
+  const taken = new Set(Object.keys(G.assign).map(Number));
+  return [...Array(n).keys()].filter(i => !taken.has(i));
+}
+function pickPile(pileIdx) {
+  const chooser = G.chooseOrder[G.chooseIdx];
+  if (chooser !== PLAYER_SEAT || G.phase !== "choose") return;
+  const available = availablePileIdxs();
+  const localIdx = available.indexOf(pileIdx);
+  if (localIdx < 0) return;
+  const futurePlayers = [...G.chooseOrder.slice(G.chooseIdx + 1), G.cutter];
+  const availCounts = available.map(i => G.piles[i]);
+  updateBeliefForChoicePlain(G.beliefs, PLAYER_SEAT, availCounts, localIdx, futurePlayers, CONSISTENT_POLICY);
+  finishChoice(pileIdx);
+}
+function npcDoChoice() {
+  const chooser = G.chooseOrder[G.chooseIdx];
+  const available = availablePileIdxs();
+  const availCounts = available.map(i => G.piles[i]);
+  const futurePlayers = [...G.chooseOrder.slice(G.chooseIdx + 1), G.cutter];
+  const wp = G.whimParams[chooser];
+  const localIdx = npcChooseDecisionWhim(availCounts, G.hands[chooser], G.whims[chooser], wp.w, futurePlayers, G.beliefs, G.policies[chooser], rngSample);
+  marginalizedUpdateBeliefForChoice(G.beliefs, chooser, availCounts, localIdx, futurePlayers, G.policies[chooser], wp);
+  finishChoice(available[localIdx]);
+}
+function finishChoice(pileIdx) {
+  const chooser = G.chooseOrder[G.chooseIdx];
+  G.assign[pileIdx] = chooser;
+  G.chooseIdx++;
+  if (G.chooseIdx >= N - 1) {
+    const remaining = availablePileIdxs();
+    G.assign[remaining[0]] = G.cutter;
+    resolveRound();
+    return;
+  }
+  render();
+  maybeAutoAct();
+}
+
+/* ---------- 採点・進行 ---------- */
+function resolveRound() {
+  const seatPiles = new Array(N);
+  for (const [pi, seat] of Object.entries(G.assign)) seatPiles[seat] = G.piles[parseInt(pi)];
+  const scores = [0, 1, 2].map(s => scorePile(G.hands[s].map(i => POOL[i]), seatPiles[s]));
+  const teamTotal = scores.reduce((a, b) => a + b, 0);
+  G.teamTotal += teamTotal;
+  updateBeliefForTeamTotal(G.beliefs, N, seatPiles, teamTotal);
+  const omni = omniMax(G.band, G.hands.map(h => h.map(i => POOL[i])));
+  G.omniSum += omni;
+
+  G.log.push({ type: "score", round: G.round, cutter: G.cutter, assign: { ...G.assign }, piles: G.piles.map(p => p.slice()), teamTotal, omni });
+  G.phase = "score";
+  render();
+}
+function nextRound() {
+  if (G.round >= ROUNDS) { endGame(); return; }
+  G.round++;
+  G.cutter = (G.cutter + 1) % N;
+  G.band = makeBand(N);
+  G.cuts = [];
+  G.piles = null;
+  G.assign = {};
+  G.phase = "cut";
+  render();
+  maybeAutoAct();
+}
+function endGame() {
+  G.phase = "end";
+  G.pct = G.omniSum > 0 ? Math.min(100, Math.round(G.teamTotal / G.omniSum * 100)) : (G.teamTotal >= 0 ? 100 : 0);
+  render();
+}
+function titleFor(pct) {
+  if (pct >= 92) return "大魔女";
+  if (pct >= 82) return "熟達";
+  if (pct >= 70) return "一人前";
+  if (pct >= 58) return "見習い";
+  return "駆け出し";
+}
+
+/* NPCの手番なら少し間を置いて自動実行する(考え中演出) */
+function maybeAutoAct() {
+  if (!G || G.phase === "end" || G.phase === "score") return;
+  if (G.phase === "cut" && G.cutter !== PLAYER_SEAT) { setTimeout(npcDoCut, 550); return; }
+  if (G.phase === "choose") {
+    const chooser = G.chooseOrder[G.chooseIdx];
+    if (chooser !== PLAYER_SEAT) setTimeout(npcDoChoice, 550);
+  }
+}
+
+/* ---------- 描画 ---------- */
+function gemHtml(m) { return `<span class="gem" style="background:${MAT[m].color}">${MAT[m].icon}</span>`; }
+
+function render() {
+  renderBanner();
+  const app = document.getElementById("app");
+  if (ST.view === "setup") { app.innerHTML = setupHTML(); return; }
+  if (ST.view === "game") { app.innerHTML = gameHTML(); return; }
+}
+
+function setupHTML() {
+  const typeOptions = NPC_TYPES.map(t =>
+    `<option value="${t.key}">${t.name}（${t.label}）</option>`).join("");
+  return `
+  <div class="panel">
+    <div class="eyebrow">セットアップ</div>
+    <div class="row" style="margin-bottom:10px">
+      <label class="kv">あなたの名前：</label>
+      <input type="text" id="nameInput" value="${ST.playerName}" placeholder="なまえ" maxlength="12">
+    </div>
+    <div class="kv" style="margin-bottom:6px">NPCタイプを2体選んでください（同じタイプは選べません）：</div>
+    <div class="row" style="margin-bottom:6px">
+      <label class="kv">1体目：<select id="npc1">${typeOptions}</select></label>
+      <label class="kv">2体目：<select id="npc2">${typeOptions}</select></label>
+    </div>
+    <div class="toggle" style="margin:10px 0">
+      <input type="checkbox" id="showTypesChk" ${ST.showTypes ? "checked" : ""}>
+      <label for="showTypesChk">タイプ表示（NPCの性格をプレイ中に見せる。人間テストの比較用にOFFにできます）</label>
+    </div>
+    <button class="primary" onclick="onStartClick()">✦ 開始</button>
+  </div>
+  <div class="panel">
+    <div class="eyebrow">NPCタイプ一覧（v3計測済み・パラメータ変更不可）</div>
+    ${NPC_TYPES.map(t => `<div class="npcCard"><div class="npcName">${t.name}（${t.label}）</div><div class="npcDesc">${t.desc}</div>
+      <div class="kv" style="margin-top:4px">λ=${t.lam}, q=${t.q}, w=${t.w}</div></div>`).join("")}
+  </div>`;
+}
+
+function onStartClick() {
+  const nameEl = document.getElementById("nameInput");
+  ST.playerName = (nameEl.value || "").replace(/[<>&"'`]/g, "").trim().slice(0, 12);
+  ST.showTypes = document.getElementById("showTypesChk").checked;
+  const k1 = document.getElementById("npc1").value;
+  const k2 = document.getElementById("npc2").value;
+  if (k1 === k2) { showError("2体は異なるタイプを選んでください。"); return; }
+  ST.npcTypeKeys = [k1, k2];
+  startGame();
+}
+
+function toggleShowTypes() { ST.showTypes = !ST.showTypes; render(); }
+
+function npcPanelHTML(seat) {
+  const meta = G.npcMeta[seat];
+  const isTurn = (G.phase === "cut" && G.cutter === seat) || (G.phase === "choose" && G.chooseOrder[G.chooseIdx] === seat);
+  const typeBlock = ST.showTypes
+    ? `<div class="npcType">${meta.label}</div><div class="npcDesc">${meta.desc}</div>`
+    : `<div class="npcType">？？？</div>`;
+  return `<div class="npcCard ${isTurn ? "turn" : ""}">
+    <div class="npcName">${G.names[seat]}${G.cutter === seat ? " 🔪" : ""}${isTurn ? "　<span class=\"kv\">（考え中…）</span>" : ""}</div>
+    ${typeBlock}
+  </div>`;
+}
+
+function bandHTML() {
+  const canCut = G.phase === "cut" && G.cutter === PLAYER_SEAT;
+  let html = `<div class="band">`;
+  for (let i = 0; i < G.band.length; i++) {
+    html += gemHtml(G.band[i]);
+    if (i < G.band.length - 1) {
+      const active = G.cuts.includes(i + 1);
+      html += canCut
+        ? `<div class="cutgap ${active ? "active" : ""}" onclick="toggleCutPoint(${i + 1})">${active ? "✂" : "·"}</div>`
+        : `<div class="cutgap">·</div>`;
+    }
+  }
+  html += `</div>`;
+  return html;
+}
+
+function pilesHTML() {
+  const canChoose = G.phase === "choose" && G.chooseOrder[G.chooseIdx] === PLAYER_SEAT;
+  const taken = G.assign;
+  let html = `<div class="row">`;
+  for (let i = 0; i < G.piles.length; i++) {
+    const isTaken = taken[i] !== undefined;
+    const clickable = canChoose && !isTaken;
+    html += `<div class="pile ${isTaken ? "taken" : ""}" ${clickable ? `onclick="pickPile(${i})"` : ""}>
+      ${G.piles[i].map(gemHtml).join("")}
+      ${isTaken ? `<span class="kv" style="margin-left:6px">→${G.names[taken[i]]}</span>` : ""}
+    </div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function logHTML() {
+  const rows = G.log.filter(e => e.type === "score").map(e =>
+    `<div class="logEntry">儀式${e.round}: 切り役=${G.names[e.cutter]} / チーム合計 +${e.teamTotal}（理論上限${e.omni}）</div>`
+  ).join("");
+  return `<div class="panel"><div class="eyebrow">🗒️ 儀式の記録</div>${rows || '<div class="kv">まだ記録がありません</div>'}</div>`;
+}
+
+function gameHTML() {
+  if (G.phase === "end") return endHTML();
+  const chooserSeat = G.phase === "choose" ? G.chooseOrder[G.chooseIdx] : null;
+  let html = `<div class="panel">
+    <div class="row spread">
+      <div class="kv">儀式 ${G.round}/${ROUNDS}　切り役：<b>${G.names[G.cutter]}</b></div>
+      <div class="kv">チーム合計：<b style="color:var(--good)">${G.teamTotal}</b></div>
+    </div>
+  </div>`;
+
+  html += `<div class="panel">
+    <div class="eyebrow">仲間</div>
+    ${npcPanelHTML(1)}${npcPanelHTML(2)}
+    <div class="toggle" style="margin-top:6px"><input type="checkbox" ${ST.showTypes ? "checked" : ""} onchange="toggleShowTypes()"> タイプ表示</div>
+  </div>`;
+
+  html += `<div class="panel"><div class="eyebrow">あなたの好み</div><div class="recipeList">
+    ${myHandTexts().map(x => `<div class="recipeItem">${TYPE[x.type].icon} ${x.text}</div>`).join("")}
+  </div></div>`;
+
+  if (G.phase === "cut") {
+    html += `<div class="panel"><div class="eyebrow">🔪 帯を分ける（${N - 1}か所）</div>${bandHTML()}`;
+    if (G.cutter === PLAYER_SEAT) {
+      html += `<div class="row" style="margin-top:10px"><button class="primary" onclick="confirmPlayerCut()">この位置で分ける</button></div>`;
+    } else {
+      html += `<div class="kv" style="margin-top:8px">${G.names[G.cutter]}が分けています…</div>`;
+    }
+    html += `</div>`;
+  } else if (G.phase === "choose") {
+    html += `<div class="panel"><div class="eyebrow">🍯 坩堝を選ぶ</div>${pilesHTML()}
+      <div class="kv" style="margin-top:8px">手番：<b>${G.names[chooserSeat]}</b>${chooserSeat !== PLAYER_SEAT ? "（考え中…）" : "（クリックして選択）"}</div>
+    </div>`;
+  } else if (G.phase === "score") {
+    const last = G.log[G.log.length - 1];
+    html += `<div class="panel"><div class="eyebrow">採点</div>
+      <div class="kv">この儀式のチーム合計：<b style="color:var(--good)">+${last.teamTotal}</b>（理論上限 ${last.omni}）</div>
+      <div class="row" style="margin-top:10px"><button class="primary" onclick="nextRound()">${G.round >= ROUNDS ? "結果を見る" : "次の儀式へ"}</button></div>
+    </div>`;
+  }
+
+  html += logHTML();
+  return html;
+}
+
+function endHTML() {
+  const pct = G.pct;
+  let html = `<div class="panel">
+    <div class="eyebrow">🏁 終了</div>
+    <div style="font-size:20px;color:var(--candle-soft)">${titleFor(pct)}</div>
+    <div class="kv" style="margin:6px 0">通算冴え ${pct}%（チーム合計 ${G.teamTotal} / 理論上限 ${G.omniSum}）</div>
+  </div>`;
+  html += logHTML();
+  html += `<div class="panel"><div class="row"><button class="primary" onclick="restart()">↻ もう一度</button></div></div>`;
+  return html;
+}
+function restart() { ST.view = "setup"; G = null; render(); }
+
+render();
+</script>
+</body>
+</html>
