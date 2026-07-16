@@ -13,3 +13,6 @@ node_modules/
 .firebase-config/
 *-debug.log
 __pycache__/
+# シミュレータの実行進捗ログ（一時的な標準エラー出力。結果はresults.md/.jsonへ）
+sim/**/run.log
+sim/**/k1_run.log
