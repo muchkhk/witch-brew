@@ -1,0 +1,324 @@
+{
+  "meta": {
+    "seed_base": 20260716,
+    "n": 100000,
+    "n_boot": 10000,
+    "prices": [
+      0,
+      0.25,
+      0.5,
+      1.0
+    ],
+    "runtime_sec": 2195.1246321201324
+  },
+  "point_estimates": {
+    "condition_A": {
+      "0": {
+        "S-peek-imm": 0.95014,
+        "S-peek-marginal": 0.92498,
+        "S-peek-prop": 0.674835
+      },
+      "0.5": {
+        "S-peek-imm": 0.725615,
+        "S-peek-marginal": 0.84996,
+        "S-peek-prop": 0.49857
+      }
+    },
+    "condition_B_c0.5": {
+      "S-peek-imm": 0.0,
+      "S-peek-marginal": 0.0
+    },
+    "condition_C_c0.5": {
+      "S-peek-imm": 0.81371,
+      "S-peek-marginal": 0.81371,
+      "S-peek-prop": 0.0
+    }
+  },
+  "ci95": {
+    "condition_A": {
+      "0": {
+        "S-peek-imm": {
+          "lower": 0.949205,
+          "upper": 0.95105
+        },
+        "S-peek-marginal": {
+          "lower": 0.923845,
+          "upper": 0.92607
+        },
+        "S-peek-prop": {
+          "lower": 0.672605,
+          "upper": 0.67705
+        }
+      },
+      "0.5": {
+        "S-peek-imm": {
+          "lower": 0.72358,
+          "upper": 0.727685
+        },
+        "S-peek-marginal": {
+          "lower": 0.8477,
+          "upper": 0.85212
+        },
+        "S-peek-prop": {
+          "lower": 0.4955,
+          "upper": 0.50167
+        }
+      }
+    },
+    "K-D4_pair": {
+      "lower": 0.03340500000000002,
+      "upper": 0.03898499999999999,
+      "x_star": "S-peek-marginal"
+    },
+    "K-D3_pair": {
+      "lower": 0.8477399999999999,
+      "upper": 0.85212,
+      "y_star": "S-peek-marginal"
+    }
+  },
+  "kill_conditions": {
+    "K-D1p_info_structurally_worthless": {
+      "fires": false,
+      "ci_lower_by_strategy": {
+        "S-peek-imm": 0.949205,
+        "S-peek-marginal": 0.923845,
+        "S-peek-prop": 0.672605
+      }
+    },
+    "K-D1_no_market": {
+      "fires": false,
+      "ci_lower_by_strategy": {
+        "S-peek-imm": 0.72358,
+        "S-peek-marginal": 0.8477,
+        "S-peek-prop": 0.4955
+      }
+    },
+    "K-D4_deduction_irrelevant_to_market": {
+      "fires": false,
+      "ci_lower": 0.03340500000000002,
+      "ci_upper": 0.03898499999999999,
+      "x_star": "S-peek-marginal",
+      "exc_A_point": 0.34996,
+      "exc_C_point": 0.31371
+    },
+    "K-D3_rondel_is_decorative": {
+      "fires": false,
+      "ci_lower": 0.8477399999999999,
+      "ci_upper": 0.85212,
+      "y_star": "S-peek-marginal",
+      "exc_A_point": 0.34996,
+      "exc_B_point": -0.5
+    }
+  },
+  "overall_pass": true,
+  "reference_not_for_judgment": {
+    "price_grid": {
+      "0.25": {
+        "A": {
+          "S-peek-imm": 0.90028,
+          "S-peek-marginal": 0.84996,
+          "S-peek-prop": 0.49857
+        },
+        "B": {
+          "S-peek-imm": 0.0,
+          "S-peek-marginal": 0.0
+        },
+        "C": {
+          "S-peek-imm": 0.93824,
+          "S-peek-marginal": 0.93824,
+          "S-peek-prop": 0.0
+        }
+      },
+      "1.0": {
+        "A": {
+          "S-peek-imm": 0.350065,
+          "S-peek-marginal": 0.45144,
+          "S-peek-prop": 0.34842
+        },
+        "B": {
+          "S-peek-imm": 0.0,
+          "S-peek-marginal": 0.0
+        },
+        "C": {
+          "S-peek-imm": 0.501245,
+          "S-peek-marginal": 0.501245,
+          "S-peek-prop": 0.0
+        }
+      }
+    },
+    "flip_rate": {
+      "A:S-peek-imm": {
+        "rate": 0.4001025,
+        "n_peek_opportunities": 400000
+      },
+      "A:S-peek-marginal": {
+        "rate": 0.4620296719477454,
+        "n_peek_opportunities": 260111
+      },
+      "A:S-peek-prop": {
+        "rate": null,
+        "n_peek_opportunities": 0
+      },
+      "B:S-peek-imm": {
+        "rate": 0.0,
+        "n_peek_opportunities": 326683
+      },
+      "B:S-peek-marginal": {
+        "rate": 0.0,
+        "n_peek_opportunities": 215441
+      },
+      "C:S-peek-imm": {
+        "rate": 0.5006875,
+        "n_peek_opportunities": 400000
+      },
+      "C:S-peek-marginal": {
+        "rate": 0.5006875,
+        "n_peek_opportunities": 400000
+      },
+      "C:S-peek-prop": {
+        "rate": null,
+        "n_peek_opportunities": 0
+      }
+    },
+    "dud_rate_condB": {
+      "S-peek-imm": {
+        "rate": 0.7833710355298562,
+        "n_peek_opportunities": 326683
+      },
+      "S-peek-marginal": {
+        "rate": 0.7934979878481812,
+        "n_peek_opportunities": 215441
+      }
+    },
+    "per_round": {
+      "A:S-peek-imm": {
+        "peek_rate_by_round": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "correct_rate_by_round": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "A:S-peek-marginal": {
+        "peek_rate_by_round": [
+          1.0,
+          1.0,
+          0.60111,
+          0.0
+        ],
+        "correct_rate_by_round": [
+          1.0,
+          1.0,
+          0.90129,
+          0.70009
+        ]
+      },
+      "A:S-peek-prop": {
+        "peek_rate_by_round": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "correct_rate_by_round": [
+          0.60036,
+          0.69853,
+          0.6978,
+          1.0
+        ]
+      },
+      "B:S-peek-imm": {
+        "peek_rate_by_round": [
+          1.0,
+          1.0,
+          1.0,
+          0.26683
+        ],
+        "correct_rate_by_round": [
+          0.49781,
+          0.60078,
+          0.59924,
+          0.7007
+        ]
+      },
+      "B:S-peek-marginal": {
+        "peek_rate_by_round": [
+          1.0,
+          0.6647,
+          0.21877,
+          0.27094
+        ],
+        "correct_rate_by_round": [
+          0.49781,
+          0.60078,
+          0.59924,
+          0.7007
+        ]
+      },
+      "C:S-peek-imm": {
+        "peek_rate_by_round": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "correct_rate_by_round": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "C:S-peek-marginal": {
+        "peek_rate_by_round": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "correct_rate_by_round": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "C:S-peek-prop": {
+        "peek_rate_by_round": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "correct_rate_by_round": [
+          0.49895,
+          0.49934,
+          0.50112,
+          0.49784
+        ]
+      }
+    },
+    "tie_rate": {
+      "A_c0.5": {
+        "S-peek-imm": 0.34933,
+        "S-peek-marginal": 0.0,
+        "S-peek-prop": 0.0
+      },
+      "B_c0.5": {
+        "S-peek-imm": 0.0,
+        "S-peek-marginal": 0.0
+      },
+      "C_c0.5": {
+        "S-peek-imm": 0.24906,
+        "S-peek-marginal": 0.24906,
+        "S-peek-prop": 0.0
+      }
+    }
+  }
+}
