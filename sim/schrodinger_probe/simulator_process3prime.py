@@ -85,6 +85,7 @@ ROSTER = {
     "B2": ("blind", "M-rand"),
     "B3": ("blind", "M-value"),
     "B4": ("blind", "M-deny"),
+    "B5": ("blind", "M-deny-near"),
     "S1": ("safe", "M-self"),
     "S2": ("scout", "M-seek"),
     "S2f": ("scout", "M-fix"),
@@ -92,7 +93,7 @@ ROSTER = {
     "S3f": ("scout-marg", "M-fix"),
     "S4": ("scout-near", "M-fix"),
 }
-BLIND_VARIANTS = ["B1", "B2", "B3", "B4"]
+BLIND_VARIANTS = ["B1", "B2", "B3", "B4", "B5"]
 TESTED_STRATS = ["S1", "S2", "S2f", "S3", "S3f", "S4"]
 SCOUT_STRATS = ["S2", "S2f", "S3", "S3f"]
 MFIX_LIKE = {"B1", "B3", "S2f", "S3f", "S4"}  # M-fix系の移動をそのまま使う
@@ -156,11 +157,10 @@ def marginal_ph(state, public_known):
 # ---------------------------------------------------------------------------
 
 
-def virtual_scout_deny_targets(asked_order, all_public_known_by_round, k):
-    """B4: 相手をS2（情報方策scout・最大番号覗き）と仮定した公開情報のみの
-    仮想覗き履歴を、ラウンド1から決定論的に構成し、まだ未実施の位置のうち
-    「相手が覗いたはず」の集合を返す。"""
-    denied = set()
+def _virtual_deny_targets(asked_order, all_public_known_by_round, k, target_fn):
+    """B4/B5共通の枠組み: 仮想相手の覗き対象規則(target_fn=max/min)だけを差し替えて
+    公開情報のみの仮想覗き履歴をラウンド1から決定論的に構成し、まだ未実施の位置
+    のうち「相手が覗いたはず」の集合を返す。"""
     asked_set = set()
     virtual_known = {}
     virtual_banked = []
@@ -173,15 +173,25 @@ def virtual_scout_deny_targets(asked_order, all_public_known_by_round, k):
             candidates = [p for p in range(1, 7)
                           if p not in asked_set and p not in banked_pos]
             if candidates:
-                target = max(candidates)
+                target = target_fn(candidates)
                 # 値は公開情報だけからは分からないため、危険集合の構成にのみ使う
                 virtual_banked.append((target, None))
                 virtual_known[target] = None
         asked_set.add(asked_order[r - 1])
         virtual_banked = [(p, v) for (p, v) in virtual_banked if p != asked_order[r - 1]]
         virtual_known.pop(asked_order[r - 1], None)
-    denied = {p for p, _ in virtual_banked}
-    return denied
+    return {p for p, _ in virtual_banked}
+
+
+def virtual_scout_deny_targets(asked_order, all_public_known_by_round, k):
+    """B4: 相手をS2（情報方策scout・最大番号覗き）と仮定した仮想モデル。"""
+    return _virtual_deny_targets(asked_order, all_public_known_by_round, k, max)
+
+
+def virtual_scout_near_deny_targets(asked_order, all_public_known_by_round, k):
+    """B5(v0.3新設): 相手をS4（情報方策scout-near・最小番号覗き）と仮定した
+    仮想モデル。B4の枠組みを流用し、対象規則のみ最小番号に置換する。"""
+    return _virtual_deny_targets(asked_order, all_public_known_by_round, k, min)
 
 
 def choose_move(name, state, asked_order, asked_set, public_known,
@@ -216,6 +226,13 @@ def choose_move(name, state, asked_order, asked_set, public_known,
 
     if move_policy == "M-deny":
         denied = virtual_scout_deny_targets(asked_order, all_public_known_by_round, k)
+        candidates = [p for p in remaining if p not in denied]
+        if not candidates:
+            candidates = remaining
+        return min(candidates)
+
+    if move_policy == "M-deny-near":
+        denied = virtual_scout_near_deny_targets(asked_order, all_public_known_by_round, k)
         candidates = [p for p in remaining if p not in denied]
         if not candidates:
             candidates = remaining
@@ -323,3 +340,177 @@ def play_single_game(name_a, name_b, true_values, a_controls_first, move_rng, pr
         "unfired_a": unfired_a, "unfired_b": unfired_b,
         "asked_order": list(asked_order),
     }
+
+
+# ---------------------------------------------------------------------------
+# K-F0(a): A規則再現（工程3のM-fix対角セルを、本モジュール内で独立に再実装し、
+# results_process3.jsonとの回帰一致を確認する。§7 K-F0(a)）
+#
+# 工程3のimm/marginal/prop情報方策・固定順M-fix・A規則（移動→覗き→賭け→開示）を
+# 本モジュール内で独立に再実装する（simulator_process3.pyをインポートして流用せず、
+# 別実装で一致すること自体を回帰検証とする）。位置は1-indexed（本モジュールの規約）。
+# ---------------------------------------------------------------------------
+
+def play_game_a_rule(info_a, info_b, true_values, is_f0d=False):
+    """A規則1ゲーム（工程3のM-fix固定順・imm/marginal/prop）。
+    移動は固定順（ラウンドk→位置k）。戻り値: dict(score_a, score_b, peek_count_a, peek_count_b)。
+    """
+    own_known_a, own_known_b = {}, {}
+    peek_count_a = peek_count_b = 0
+    public_known = {}
+    score_a = score_b = 0.0
+
+    def ph_for(own_known, pos):
+        if pos in own_known:
+            return 1.0 if value_class(own_known[pos]) == "H" else 0.0
+        if is_f0d:
+            return 0.5
+        known = dict(public_known)
+        known.update(own_known)
+        return posterior_PH(set(known.values()))
+
+    def eligible(own_known, unqueried_set, pos):
+        if pos not in unqueried_set or pos in own_known:
+            return False
+        if is_f0d:
+            return True
+        known = dict(public_known)
+        known.update(own_known)
+        return (6 - len(known)) > 1
+
+    for k in range(1, 5):
+        queried = k  # 固定順（D-6）: ラウンドkで位置k
+        unqueried_set = {p for p in range(1, 7) if p not in public_known}
+
+        for info_policy, own_known in ((info_a, own_known_a), (info_b, own_known_b)):
+            if info_policy == "blind":
+                continue
+            if info_policy in ("imm", "marginal"):
+                if eligible(own_known, unqueried_set, queried):
+                    do_it = True
+                    if info_policy == "marginal":
+                        pre_p = ph_for(own_known, queried)
+                        do_it = 0.35 < pre_p < 0.65
+                    if do_it:
+                        own_known[queried] = true_values[queried - 1]
+                        if own_known is own_known_a:
+                            peek_count_a += 1
+                        else:
+                            peek_count_b += 1
+            elif info_policy == "prop":
+                schedule = [5, 6]
+                if k <= 2:
+                    cand = schedule[k - 1]
+                    if eligible(own_known, unqueried_set, cand):
+                        own_known[cand] = true_values[cand - 1]
+                        if own_known is own_known_a:
+                            peek_count_a += 1
+                        else:
+                            peek_count_b += 1
+            else:
+                raise ValueError(info_policy)
+
+        p_a = ph_for(own_known_a, queried)
+        p_b = ph_for(own_known_b, queried)
+        dir_a = "H" if p_a >= 0.5 else "L"
+        dir_b = "H" if p_b >= 0.5 else "L"
+
+        true_v = true_values[queried - 1]
+        true_dir = value_class(true_v)
+        score_a += 1.0 if dir_a == true_dir else -1.0
+        score_b += 1.0 if dir_b == true_dir else -1.0
+
+        public_known[queried] = true_v
+        own_known_a[queried] = true_v
+        own_known_b[queried] = true_v
+
+    return {
+        "score_a": score_a, "score_b": score_b,
+        "peek_count_a": peek_count_a, "peek_count_b": peek_count_b,
+    }
+
+
+def simulate_matchup_a_rule(info_a, is_f0d=False, n=None):
+    """info_a vs blind(info='blind') のN局。工程3のsimulate_matchupと同じ
+    seed_base+iダイス生成・座席対称化2局を用いる。"""
+    n = n or N
+    data = {k: [0.0] * n for k in
+            ("g1_bs_p", "g1_pc_p", "g1_bs_b", "g1_pc_b",
+             "g2_bs_p", "g2_pc_p", "g2_bs_b", "g2_pc_b")}
+    for i in range(n):
+        perm, f0d = gen_game_dice(i)
+        true_values = f0d if is_f0d else perm
+        g1 = play_game_a_rule(info_a, "blind", true_values, is_f0d=is_f0d)
+        g2 = play_game_a_rule("blind", info_a, true_values, is_f0d=is_f0d)
+        data["g1_bs_p"][i] = g1["score_a"]; data["g1_pc_p"][i] = g1["peek_count_a"]
+        data["g1_bs_b"][i] = g1["score_b"]; data["g1_pc_b"][i] = g1["peek_count_b"]
+        data["g2_bs_p"][i] = g2["score_b"]; data["g2_pc_p"][i] = g2["peek_count_b"]
+        data["g2_bs_b"][i] = g2["score_a"]; data["g2_pc_b"][i] = g2["peek_count_a"]
+    return data
+
+
+def compute_win_array_a_rule(data, price, n=None):
+    n = n or len(data["g1_bs_p"])
+    out = [0.0] * n
+    for i in range(n):
+        s_p1 = data["g1_bs_p"][i] - data["g1_pc_p"][i] * price
+        s_b1 = data["g1_bs_b"][i] - data["g1_pc_b"][i] * price
+        s_p2 = data["g2_bs_p"][i] - data["g2_pc_p"][i] * price
+        s_b2 = data["g2_bs_b"][i] - data["g2_pc_b"][i] * price
+        w1 = 1.0 if s_p1 > s_b1 else (0.5 if s_p1 == s_b1 else 0.0)
+        w2 = 1.0 if s_p2 > s_b2 else (0.5 if s_p2 == s_b2 else 0.0)
+        out[i] = (w1 + w2) / 2.0
+    return out
+
+
+# ---------------------------------------------------------------------------
+# 統計関数（工程3 simulator_process3.pyから流用: Wilson score interval・
+# パーセンタイル法ブートストラップ・CI重なり判定）
+# ---------------------------------------------------------------------------
+
+Z_95 = 1.959963984540054
+
+
+def wilson_ci95(p_hat, n):
+    z = Z_95
+    denom = 1 + z * z / n
+    center = (p_hat + z * z / (2 * n)) / denom
+    margin = (z / denom) * math.sqrt(p_hat * (1 - p_hat) / n + z * z / (4 * n * n))
+    return center - margin, center + margin
+
+
+def percentile(sorted_vals, p, n_boot):
+    idx = max(0, min(n_boot - 1, int(p * n_boot)))
+    return sorted_vals[idx]
+
+
+def bootstrap_ci_paired_diff(arr_a, arr_b, seed, n_boot=B_BOOT):
+    n = len(arr_a)
+    rng = random.Random(seed)
+    reps = []
+    for _ in range(n_boot):
+        idx = rng.choices(range(n), k=n)
+        ma = sum(arr_a[i] for i in idx) / n
+        mb = sum(arr_b[i] for i in idx) / n
+        reps.append(ma - mb)
+    reps.sort()
+    return percentile(reps, 0.025, n_boot), percentile(reps, 0.975, n_boot)
+
+
+def bootstrap_ci_single_percentile(arr, seed, n_boot=B_BOOT):
+    n = len(arr)
+    rng = random.Random(seed)
+    reps = []
+    for _ in range(n_boot):
+        idx = rng.choices(range(n), k=n)
+        reps.append(sum(arr[i] for i in idx) / n)
+    reps.sort()
+    return percentile(reps, 0.025, n_boot), percentile(reps, 0.975, n_boot)
+
+
+def ci_overlap(lo1, hi1, lo2, hi2):
+    return lo1 <= hi2 and lo2 <= hi1
+
+
+def hash_stable(name):
+    return sum((i + 1) * ord(c) for i, c in enumerate(name)) % 100000
