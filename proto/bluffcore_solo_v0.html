@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ブラフ核v0 ― ソロ下見プロトタイプ</title>
+<style>
+  :root{
+    --bg:#101418; --panel:#1a2027; --panel2:#212934; --line:#2e3742;
+    --text:#e7edf3; --muted:#8fa0b3; --accent:#4fb2e8; --good:#4fd18a;
+    --bad:#e85f5f; --warn:#e8b34f; --pot:#2a2320;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh;
+  }
+  #app{ max-width:920px; margin:0 auto; padding:16px 16px 80px; }
+  h1{ font-size:1.15rem; margin:8px 0 4px; }
+  h2{ font-size:1rem; margin:0 0 8px; color:var(--accent); }
+  .sub{ color:var(--muted); font-size:0.85rem; margin-bottom:16px; }
+  .panel{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:12px; }
+  .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .btn{
+    background:var(--panel2); color:var(--text); border:1px solid var(--line);
+    border-radius:8px; padding:10px 16px; font-size:0.95rem; cursor:pointer;
+  }
+  .btn:hover{ border-color:var(--accent); }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+  .btn.primary{ background:#1d4a63; border-color:var(--accent); }
+  .btn.danger{ background:#4a1d1d; border-color:var(--bad); }
+  .btn.danger.armed{ background:var(--bad); color:#1a0000; font-weight:bold; }
+  .npc-card{ flex:1 1 240px; }
+  .npc-card h3{ margin:0 0 6px; }
+  .npc-card p{ color:var(--muted); font-size:0.85rem; line-height:1.5; }
+  .statbar{ display:flex; gap:18px; flex-wrap:wrap; font-size:0.9rem; margin-bottom:8px; }
+  .stat{ background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:6px 12px; }
+  .stat b{ color:var(--accent); }
+  .hand{ display:flex; gap:10px; flex-wrap:wrap; margin:10px 0; }
+  .card{
+    width:56px; height:76px; border-radius:8px; background:var(--panel2);
+    border:2px solid var(--line); display:flex; align-items:center; justify-content:center;
+    font-size:1.6rem; font-weight:bold; cursor:pointer; user-select:none;
+  }
+  .card.disabled{ cursor:not-allowed; opacity:0.35; }
+  .card:hover:not(.disabled){ border-color:var(--accent); transform:translateY(-2px); }
+  .card.mini{ width:38px; height:52px; font-size:1.1rem; }
+  .card.faceclosed{ background:repeating-linear-gradient(45deg,#243040,#243040 6px,#1a222c 6px,#1a222c 12px); color:transparent; }
+  table{ width:100%; border-collapse:collapse; font-size:0.85rem; }
+  th,td{ text-align:left; padding:4px 6px; border-bottom:1px solid var(--line); }
+  th{ color:var(--muted); font-weight:normal; }
+  #log{
+    background:#0b0e12; border:1px solid var(--line); border-radius:8px; padding:8px 10px;
+    max-height:180px; overflow-y:auto; font-family:ui-monospace,Consolas,monospace; font-size:0.78rem;
+    white-space:pre-wrap; line-height:1.5;
+  }
+  #errorBanner{
+    position:fixed; top:0; left:0; right:0; background:var(--bad); color:#1a0000;
+    padding:10px 16px; font-weight:bold; z-index:100; text-align:center;
+  }
+  #toast{
+    position:fixed; bottom:56px; left:50%; transform:translateX(-50%);
+    background:var(--good); color:#062; padding:8px 16px; border-radius:8px; font-weight:bold; z-index:100;
+  }
+  #verBadge{
+    position:fixed; right:10px; bottom:10px; background:var(--panel2); border:1px solid var(--line);
+    color:var(--muted); font-size:0.72rem; padding:4px 8px; border-radius:6px; z-index:50;
+  }
+  .pill{ display:inline-block; padding:2px 8px; border-radius:12px; font-size:0.75rem; }
+  .pill.human{ background:#1d4a63; }
+  .pill.npc{ background:#4a2f1d; }
+  .reveal-line{ font-size:0.95rem; margin:6px 0; }
+  .result-big{ font-size:1.3rem; font-weight:bold; margin:10px 0; }
+  #selftestResult{ font-size:0.85rem; white-space:pre-wrap; font-family:ui-monospace,Consolas,monospace; }
+</style>
+</head>
+<body>
+<div id="errorBanner" hidden></div>
+<div id="toast" hidden></div>
+<div id="app"></div>
+<div id="verBadge"></div>
+
+<script>
+'use strict';
+
+/* ============================================================
+   ブラフ核v0 ソロ下見プロトタイプ
+   典拠: proto/核定義_ブラフ核v0_凍結_2026-07-17.md（§2〜§6凍結）
+   ============================================================ */
+
+const VER = "v0.1.0";
+
+/* ---------------- 定数（凍結定義 §2,3,5） ---------------- */
+const RANKS = [1,2,3,4,5,6,7,8,9,10];
+const BET_OPTIONS = [1,2,3,5];
+const INITIAL_CHIPS = 30;
+const MAX_RAISES = 3;
+const MAX_DEALS = 3;
+const HAND_SIZE = 5;
+
+/* NPC性格情報（表示用） */
+const NPC_INFO = {
+  N1: { label:'N1 正直者', desc:'カードの強さに素直に比例したベット。弱ければ高確率でフォールド。ブラフはほぼしない。' },
+  N2: { label:'N2 強気',   desc:'カードの強さと無関係に高頻度で大きめのベット・レイズ。滅多にフォールドしない。' },
+  N3: { label:'N3 罠張り', desc:'強いカードはチェック・コールで誘う。あなたのブラフが見えるほどコールが増える。' },
+};
+
+/* ---------------- 汎用ユーティリティ ---------------- */
+function shuffle(arr){
+  const a = arr.slice();
+  for (let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    const t=a[i]; a[i]=a[j]; a[j]=t;
+  }
+  return a;
+}
+function bandOf(card){ return card<=3 ? 'weak' : (card<=7 ? 'mid' : 'strong'); }
+function nameOf(seat){ return seat==='human' ? 'あなた' : 'NPC'; }
+function extractValues(options, prefix){
+  return options.filter(o=>o.startsWith(prefix+':')).map(o=>Number(o.split(':')[1]));
+}
+function weightedPickFromMap(values, weights){
+  const entries = values.map(v=>[v, weights[v]||0]).filter(e=>e[1]>0);
+  if (!entries.length) return values.length ? values[0] : undefined;
+  const total = entries.reduce((s,e)=>s+e[1],0);
+  let roll = Math.random()*total;
+  for (const [v,w] of entries){ if (roll<w) return v; roll-=w; }
+  return entries[entries.length-1][0];
+}
+
+/* ==================== エンジン（DOM非依存） ==================== */
+
+function newMatch(){
+  return {
+    chips: { human: INITIAL_CHIPS, npc: INITIAL_CHIPS },
+    dealNum: 0,
+    globalRoundIndex: 0,
+    dealPublicHistory: [],
+    matchLog: [],
+    bluffCount: { human:0, npc:0 },
+    matchOver: false,
+    result: null,
+    seatTypes: null, // {human:'HUMAN'|'N1'|'N2'|'N3', npc:'N1'|'N2'|'N3'}
+    deal: null,
+  };
+}
+
+function log(m, text){ m.matchLog.push(text); }
+
+function startDeal(m){
+  m.dealNum += 1;
+  m.dealPublicHistory = [];
+  const deck = shuffle(RANKS);
+  const humanCards = deck.slice(0,5).sort((a,b)=>a-b);
+  const npcCards = deck.slice(5,10).sort((a,b)=>a-b);
+  m.deal = {
+    roundInDeal: 0,
+    hand: { human: humanCards.slice(), npc: npcCards.slice() },
+    // 手札を出す順序はNPC側のみ、ディール開始時に確定させる（実装裁量。§末尾の報告参照）
+    playOrder: { human: shuffle(humanCards), npc: shuffle(npcCards) },
+    round: null,
+  };
+  log(m, `── ディール${m.dealNum} 開始（10枚シャッフル・各5枚配布） ──`);
+}
+
+function pickCardAuto(m, seat){
+  const c = m.deal.playOrder[seat].shift();
+  const idx = m.deal.hand[seat].indexOf(c);
+  m.deal.hand[seat].splice(idx,1);
+  return c;
+}
+
+function beginRound(m){
+  const d = m.deal;
+  d.roundInDeal += 1;
+  m.globalRoundIndex += 1;
+  const firstMover = (m.globalRoundIndex % 2 === 1) ? 'human' : 'npc';
+  m.chips.human -= 1;
+  m.chips.npc -= 1;
+  log(m, `[D${m.dealNum}-R${d.roundInDeal}] アンティ 各1。先手=${nameOf(firstMover)}`);
+  if (m.chips.human<=0 || m.chips.npc<=0){
+    finalizeByElimination(m);
+    return;
+  }
+  d.round = {
+    firstMover, toAct: null, currentBet:0, contributions:{human:0,npc:0},
+    raiseCount:0, pot:2, history:[], cardsPlayed:{human:null,npc:null},
+    phase:'select_cards',
+  };
+  // NPC制御席（自席がHUMANでない）はこの時点でカードを確定（人間には見せない）
+  Object.keys(m.seatTypes).forEach(seat=>{
+    if (m.seatTypes[seat] !== 'HUMAN'){
+      d.round.cardsPlayed[seat] = pickCardAuto(m, seat);
+    }
+  });
+  if (d.round.cardsPlayed.human!==null && d.round.cardsPlayed.npc!==null){
+    startBetting(m);
+  }
+}
+
+function submitHumanCard(m, card){
+  const d = m.deal;
+  const idx = d.hand.human.indexOf(card);
+  if (idx<0) throw new Error('手札にないカードです');
+  d.hand.human.splice(idx,1);
+  d.round.cardsPlayed.human = card;
+  if (d.round.cardsPlayed.human!==null && d.round.cardsPlayed.npc!==null){
+    startBetting(m);
+  }
+}
+
+function startBetting(m){
+  const d = m.deal; const r = d.round;
+  r.phase = 'betting';
+  r.toAct = r.firstMover;
+  log(m, `[D${m.dealNum}-R${d.roundInDeal}] 両者カード提示完了。ベット開始（先手=${nameOf(r.firstMover)}）`);
+}
+
+function computeOptions(m){
+  const r = m.deal.round;
+  const actor = r.toAct;
+  const remaining = m.chips[actor];
+  if (r.currentBet === 0){
+    const bets = BET_OPTIONS.filter(v=>v<=remaining);
+    return { kind:'open', options:['check', ...bets.map(v=>'bet:'+v)] };
+  }
+  const toCall = r.currentBet - r.contributions[actor];
+  const canRaise = r.raiseCount < MAX_RAISES;
+  const raises = canRaise ? BET_OPTIONS.filter(rv => (toCall+rv) <= remaining) : [];
+  return { kind:'facing', options:['fold','call', ...raises.map(v=>'raise:'+v)], toCall };
+}
+
+function submitAction(m, action, amount){
+  const r = m.deal.round;
+  if (!r || r.phase!=='betting') throw new Error('ベットフェーズではありません');
+  const actor = r.toAct; const other = actor==='human' ? 'npc' : 'human';
+  const remaining = m.chips[actor];
+
+  if (action==='check'){
+    if (r.currentBet !== 0) throw new Error('ベットが存在するためチェックできません');
+    r.history.push({player:actor, action:'check'});
+    const priorChecks = r.history.filter(h=>h.action==='check').length;
+    log(m, `[D${m.dealNum}-R${m.deal.roundInDeal}] ${nameOf(actor)}: チェック`);
+    if (priorChecks>=2){
+      finishRound(m, 'showdown');
+    } else {
+      r.toAct = other;
+    }
+  } else if (action==='bet'){
+    const v = amount;
+    if (r.currentBet!==0) throw new Error('既にベットが存在します');
+    if (!BET_OPTIONS.includes(v) || v>remaining) throw new Error('不正なベット額です');
+    r.contributions[actor]+=v; m.chips[actor]-=v; r.pot+=v; r.currentBet=v;
+    r.history.push({player:actor, action:'bet', amount:v});
+    log(m, `[D${m.dealNum}-R${m.deal.roundInDeal}] ${nameOf(actor)}: ベット ${v}`);
+    r.toAct = other;
+  } else if (action==='call'){
+    if (r.currentBet===0) throw new Error('コール対象がありません');
+    const toCall = r.currentBet - r.contributions[actor];
+    const pay = Math.min(toCall, remaining);
+    r.contributions[actor]+=pay; m.chips[actor]-=pay; r.pot+=pay;
+    const allIn = pay < toCall;
+    r.history.push({player:actor, action:'call', amount:pay, allIn});
+    log(m, `[D${m.dealNum}-R${m.deal.roundInDeal}] ${nameOf(actor)}: コール ${pay}${allIn?'（オールイン）':''}`);
+    finishRound(m, 'showdown');
+  } else if (action==='raise'){
+    if (r.currentBet===0) throw new Error('レイズ対象がありません');
+    if (r.raiseCount>=MAX_RAISES) throw new Error('レイズ上限に達しています');
+    const rv = amount;
+    const toCall = r.currentBet - r.contributions[actor];
+    const total = toCall+rv;
+    if (!BET_OPTIONS.includes(rv) || total>remaining) throw new Error('不正なレイズ額です');
+    r.contributions[actor]+=total; m.chips[actor]-=total; r.pot+=total;
+    r.currentBet = r.contributions[actor];
+    r.raiseCount+=1;
+    r.history.push({player:actor, action:'raise', amount:rv, totalPaid:total});
+    log(m, `[D${m.dealNum}-R${m.deal.roundInDeal}] ${nameOf(actor)}: レイズ +${rv}（支払${total}）`);
+    r.toAct = other;
+  } else if (action==='fold'){
+    r.history.push({player:actor, action:'fold'});
+    log(m, `[D${m.dealNum}-R${m.deal.roundInDeal}] ${nameOf(actor)}: フォールド`);
+    finishRound(m, 'fold', other);
+  } else {
+    throw new Error('不明なアクション: '+action);
+  }
+}
+
+function finishRound(m, method, winnerOverride){
+  const d = m.deal; const r = d.round;
+  let winner;
+  if (method==='fold'){
+    winner = winnerOverride;
+  } else if (r.cardsPlayed.human > r.cardsPlayed.npc){
+    winner = 'human';
+  } else if (r.cardsPlayed.npc > r.cardsPlayed.human){
+    winner = 'npc';
+  } else {
+    throw new Error('同値発生（実装バグ：プール内に重複がないため本来起こり得ない）');
+  }
+  m.chips[winner] += r.pot;
+  const entry = {
+    dealNum:m.dealNum, round:d.roundInDeal,
+    humanCard:r.cardsPlayed.human, npcCard:r.cardsPlayed.npc, winner, method,
+  };
+  m.dealPublicHistory.push(entry);
+  updateBluffCount(m, r, entry);
+  log(m, `[D${m.dealNum}-R${d.roundInDeal}] 決着(${method==='fold'?'フォールド':'ショーダウン'})：あなた=${entry.humanCard} / NPC=${entry.npcCard} → ${nameOf(winner)}の勝ち（ポット${r.pot}獲得）`);
+  r.pot = 0;
+  r.phase = 'resolved';
+  if (m.chips.human<=0 || m.chips.npc<=0){
+    finalizeByElimination(m);
+  }
+}
+
+function updateBluffCount(m, r, entry){
+  ['human','npc'].forEach(seat=>{
+    const card = entry[seat+'Card'];
+    if (card<=3){
+      const bigBet = r.history.some(h=> h.player===seat && (h.action==='bet'||h.action==='raise') && h.amount>=3);
+      if (bigBet) m.bluffCount[seat] = (m.bluffCount[seat]||0)+1;
+    }
+  });
+}
+
+function finalizeByElimination(m){
+  const humanOut = m.chips.human<=0, npcOut = m.chips.npc<=0;
+  if (humanOut && npcOut){
+    m.result='draw';
+    log(m, '両者同時にチップ枯渇（保存則上通常は発生しない防御分岐）。引き分けとする。');
+  } else if (humanOut){
+    m.result='npc_win';
+    log(m, 'あなたのチップが尽きた。NPCの勝ち。');
+  } else {
+    m.result='human_win';
+    log(m, 'NPCのチップが尽きた。あなたの勝ち。');
+  }
+  m.matchOver = true;
+}
+
+function finalizeByChips(m){
+  if (m.chips.human>m.chips.npc) m.result='human_win';
+  else if (m.chips.npc>m.chips.human) m.result='npc_win';
+  else m.result='draw';
+  m.matchOver = true;
+  log(m, `3ディール終了。最終チップ：あなた=${m.chips.human} / NPC=${m.chips.npc} → ${m.result==='draw'?'引き分け':(nameOf(m.result==='human_win'?'human':'npc')+'の勝ち')}`);
+}
+
+/** 現在のラウンド決着後、次のラウンド／ディール／マッチ終了へ進める。 */
+function advanceAfterResolution(m){
+  if (m.matchOver) return;
+  const d = m.deal;
+  if (d.roundInDeal >= HAND_SIZE){
+    if (m.dealNum >= MAX_DEALS){
+      finalizeByChips(m);
+      return;
+    }
+    startDeal(m);
+  }
+  beginRound(m);
+}
+
+/* ---------------- NPC意思決定 ---------------- */
+function npcDecide(type, m, opts, seat){
+  const ownCard = m.deal.round.cardsPlayed[seat];
+  const band = bandOf(ownCard);
+  if (type==='N1') return decideN1(band, opts, ownCard);
+  if (type==='N2') return decideN2(band, opts);
+  if (type==='N3') return decideN3(band, opts, m, seat);
+  throw new Error('未知のNPCタイプ: '+type);
+}
+
+function decideN1(band, opts, ownCard){
+  if (opts.kind==='open'){
+    const bets = extractValues(opts.options,'bet');
+    if (band==='weak'){
+      if (!bets.includes(1) || Math.random()<0.75) return {action:'check'};
+      return {action:'bet', amount:1};
+    }
+    if (band==='mid'){
+      const choices = bets.filter(v=>v===2||v===3);
+      if (!choices.length) return {action:'check'};
+      return {action:'bet', amount: weightedPickFromMap(choices, {2:0.6,3:0.4})};
+    }
+    const choices = bets.filter(v=>v===3||v===5);
+    if (!choices.length) return {action:'check'};
+    return {action:'bet', amount: weightedPickFromMap(choices, {3:0.35,5:0.65})};
+  }
+  const raises = extractValues(opts.options,'raise');
+  if (band==='weak'){
+    const foldProb = opts.toCall>=3 ? 0.9 : 0.7;
+    return Math.random()<foldProb ? {action:'fold'} : {action:'call'};
+  }
+  if (band==='mid'){
+    const roll = Math.random();
+    if (roll<0.10 && raises.length) return {action:'raise', amount: raises.includes(2)?2:raises[0]};
+    if (roll<0.90) return {action:'call'};
+    return {action:'fold'};
+  }
+  // strong：honestは強ければ降りない
+  if (Math.random()<0.55 && raises.length){
+    const preferBig = ownCard>=9;
+    const v = preferBig ? (raises.includes(5)?5:raises[raises.length-1]) : (raises.includes(3)?3:raises[0]);
+    return {action:'raise', amount:v};
+  }
+  return {action:'call'};
+}
+
+function decideN2(band, opts){
+  if (opts.kind==='open'){
+    const bets = extractValues(opts.options,'bet');
+    if (!bets.length || Math.random()<0.30) return {action:'check'};
+    return {action:'bet', amount: weightedPickFromMap(bets, {1:0.15,2:0.15,3:0.30,5:0.40})};
+  }
+  const raises = extractValues(opts.options,'raise');
+  const foldProb = band==='weak' ? 0.30 : (band==='mid' ? 0.15 : 0.05);
+  if (Math.random()<foldProb) return {action:'fold'};
+  if (raises.length && Math.random()<0.5){
+    return {action:'raise', amount: weightedPickFromMap(raises, {1:0.10,2:0.20,3:0.30,5:0.40})};
+  }
+  return {action:'call'};
+}
+
+function decideN3(band, opts, m, seat){
+  const opponent = seat==='human' ? 'npc' : 'human';
+  const bluffN = m.bluffCount[opponent]||0;
+  const adaptiveBoost = Math.min(0.4, bluffN*0.1);
+  if (opts.kind==='open'){
+    const bets = extractValues(opts.options,'bet');
+    if (band==='strong'){
+      if (!bets.length || Math.random()<0.80) return {action:'check'};
+      return {action:'bet', amount: bets.includes(1)?1:bets[0]};
+    }
+    if (band==='mid'){
+      if (!bets.length || Math.random()<0.50) return {action:'check'};
+      const choices = bets.filter(v=>v===2||v===3);
+      return {action:'bet', amount: choices.length ? weightedPickFromMap(choices,{2:0.5,3:0.5}) : bets[0]};
+    }
+    if (!bets.includes(1) || Math.random()<0.70) return {action:'check'};
+    return {action:'bet', amount:1};
+  }
+  const raises = extractValues(opts.options,'raise');
+  if (band==='strong'){
+    if (m.deal.round.raiseCount>=1){
+      if (raises.length && Math.random()<0.60) return {action:'raise', amount: raises.includes(5)?5:raises[raises.length-1]};
+      return {action:'call'};
+    }
+    if (raises.length && Math.random()<0.15) return {action:'raise', amount: raises[0]};
+    return {action:'call'};
+  }
+  const baseFold = band==='mid' ? 0.20 : 0.65;
+  const foldProb = Math.max(0.15, baseFold-adaptiveBoost);
+  if (Math.random()<foldProb) return {action:'fold'};
+  return {action:'call'};
+}
+
+function randomNpcType(){
+  const t=['N1','N2','N3'];
+  return t[Math.floor(Math.random()*3)];
+}
+
+/* ---------------- 自動テスト（NPC vs NPC・チップ保存則） ---------------- */
+function conservationTotal(m){
+  return m.chips.human + m.chips.npc + (m.deal && m.deal.round ? m.deal.round.pot : 0);
+}
+
+function autoPlayOneMatch(){
+  const m = newMatch();
+  m.seatTypes = { human: randomNpcType(), npc: randomNpcType() };
+  startDeal(m);
+  beginRound(m);
+  const violations = [];
+  let guard = 0;
+  if (conservationTotal(m) !== INITIAL_CHIPS*2) violations.push({stage:'begin', total:conservationTotal(m)});
+  while (!m.matchOver){
+    guard++;
+    if (guard>20000) throw new Error('ガード上限到達（無限ループ疑い）');
+    if (m.deal.round && m.deal.round.phase==='betting'){
+      const r = m.deal.round;
+      const opts = computeOptions(m);
+      const decision = npcDecide(m.seatTypes[r.toAct], m, opts, r.toAct);
+      submitAction(m, decision.action, decision.amount);
+      const total = conservationTotal(m);
+      if (total !== INITIAL_CHIPS*2) violations.push({stage:'action', total});
+    } else {
+      advanceAfterResolution(m);
+      if (!m.matchOver){
+        const total = conservationTotal(m);
+        if (total !== INITIAL_CHIPS*2) violations.push({stage:'advance', total});
+      }
+    }
+  }
+  return { result:m.result, violations };
+}
+
+function runSelfTest(n){
+  const summary = {
+    requested:n, completed:0, errorCount:0, errorSamples:[],
+    violations:[], results:{human_win:0, npc_win:0, draw:0},
+  };
+  for (let i=0;i<n;i++){
+    try{
+      const res = autoPlayOneMatch();
+      summary.completed++;
+      summary.results[res.result] = (summary.results[res.result]||0)+1;
+      if (res.violations.length) summary.violations.push({match:i, count:res.violations.length, sample:res.violations[0]});
+    } catch(e){
+      summary.errorCount++;
+      if (summary.errorSamples.length<5) summary.errorSamples.push(String(e && e.message || e));
+    }
+  }
+  return summary;
+}
+
+/* ==================== UI ==================== */
+
+let M = null;          // 現在進行中のマッチ（対人間UI用）
+let GEN = 0;            // 非同期ガード（§4-2）：マッチ切替・中断のたびに増分
+let abortArmed = false;
+let abortTimer = null;
+
+function showError(msg){
+  const el = document.getElementById('errorBanner');
+  el.textContent = 'エラー: '+msg;
+  el.hidden = false;
+  clearTimeout(showError._t);
+  showError._t = setTimeout(()=>{ el.hidden = true; }, 6000);
+}
+function showToast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.hidden = false;
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=>{ el.hidden = true; }, 2000);
+}
+function safe(fn){
+  return function(...args){
+    try { fn(...args); } catch(e){ showError(e && e.message ? e.message : String(e)); }
+  };
+}
+
+function afterStateChange(){
+  render();
+  if (!M.matchOver && M.deal && M.deal.round && M.deal.round.phase==='betting' && M.deal.round.toAct==='npc'){
+    scheduleNpcMove();
+  }
+}
+function scheduleNpcMove(){
+  const gen = GEN;
+  setTimeout(()=>{
+    if (gen !== GEN) return; // §4-2：マッチが切り替わっていたら何もしない
+    if (!M || M.matchOver || !M.deal || !M.deal.round || M.deal.round.phase!=='betting' || M.deal.round.toAct!=='npc') return;
+    try{
+      const r = M.deal.round;
+      const opts = computeOptions(M);
+      const decision = npcDecide(M.seatTypes.npc, M, opts, 'npc');
+      submitAction(M, decision.action, decision.amount);
+    } catch(e){
+      showError(e && e.message ? e.message : String(e));
+    }
+    afterStateChange();
+  }, 380);
+}
+
+function startNewMatch(npcType){
+  GEN++;
+  M = newMatch();
+  M.seatTypes = { human:'HUMAN', npc:npcType };
+  startDeal(M);
+  beginRound(M);
+  abortArmed = false;
+  afterStateChange();
+}
+
+function backToSelect(){
+  GEN++;
+  M = null;
+  abortArmed = false;
+  render();
+}
+
+/* ---------- レンダリング ---------- */
+function render(){
+  document.getElementById('verBadge').textContent = 'ブラフ核v0 ソロ下見 '+VER;
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  if (!M){
+    app.appendChild(renderSelectScreen());
+    return;
+  }
+  if (M.matchOver){
+    app.appendChild(renderEndScreen());
+    return;
+  }
+  app.appendChild(renderGameScreen());
+}
+
+function el(tag, attrs, children){
+  const e = document.createElement(tag);
+  if (attrs) Object.keys(attrs).forEach(k=>{
+    if (k==='class') e.className = attrs[k];
+    else if (k==='html') e.innerHTML = attrs[k];
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), attrs[k]);
+    else e.setAttribute(k, attrs[k]);
+  });
+  (children||[]).forEach(c=>{ if (c!=null) e.appendChild(typeof c==='string' ? document.createTextNode(c) : c); });
+  return e;
+}
+
+function renderSelectScreen(){
+  const wrap = el('div', {});
+  wrap.appendChild(el('h1', {}, ['ブラフ核v0 ― ソロ下見プロトタイプ']));
+  wrap.appendChild(el('div', {class:'sub'}, ['1〜10のカードを秘匿分割し、1枚出し勝負を生命チップで賭ける。対戦するNPCを選んでください。']));
+
+  const cardsRow = el('div', {class:'row'});
+  ['N1','N2','N3'].forEach(t=>{
+    const info = NPC_INFO[t];
+    const card = el('div', {class:'panel npc-card'});
+    card.appendChild(el('h3', {}, [info.label]));
+    card.appendChild(el('p', {}, [info.desc]));
+    card.appendChild(el('button', {class:'btn primary', onclick:safe(()=>startNewMatch(t))}, ['この相手と対戦開始']));
+    cardsRow.appendChild(card);
+  });
+  wrap.appendChild(cardsRow);
+
+  const dev = el('div', {class:'panel'});
+  dev.appendChild(el('h2', {}, ['開発者検証：自動テスト']));
+  dev.appendChild(el('p', {class:'sub', html:'NPC vs NPC の無人対戦を100マッチ実行し、完走数とチップ保存則（両者チップ＋ポットの合計が常に初期合計60と一致）を検査します。'}));
+  const btn = el('button', {class:'btn', onclick:safe(()=>{
+    const res = runSelfTest(100);
+    document.getElementById('selftestResult').textContent = formatSelfTestResult(res);
+  })}, ['自動テストを実行（100マッチ）']);
+  dev.appendChild(btn);
+  dev.appendChild(el('div', {id:'selftestResult'}));
+  wrap.appendChild(dev);
+
+  return wrap;
+}
+
+function formatSelfTestResult(res){
+  const lines = [];
+  lines.push(`完走: ${res.completed} / ${res.requested}`);
+  lines.push(`エラー発生: ${res.errorCount}`);
+  if (res.errorSamples.length) lines.push('エラー例: '+res.errorSamples.join(' | '));
+  lines.push(`チップ保存則違反: ${res.violations.length}件`);
+  if (res.violations.length){
+    lines.push('違反サンプル: '+JSON.stringify(res.violations.slice(0,3)));
+  }
+  lines.push(`結果内訳: human_win=${res.results.human_win||0} / npc_win=${res.results.npc_win||0} / draw=${res.results.draw||0}`);
+  return lines.join('\n');
+}
+
+function renderGameScreen(){
+  const wrap = el('div', {});
+  const d = M.deal; const r = d.round;
+
+  wrap.appendChild(el('div', {class:'row'}, [
+    el('span', {class:'pill npc'}, ['対戦相手: '+NPC_INFO[M.seatTypes.npc].label]),
+  ]));
+
+  const stat = el('div', {class:'statbar'});
+  stat.appendChild(el('div', {class:'stat'}, ['あなたのチップ: ', el('b',{},[String(M.chips.human)])]));
+  stat.appendChild(el('div', {class:'stat'}, ['NPCのチップ: ', el('b',{},[String(M.chips.npc)])]));
+  stat.appendChild(el('div', {class:'stat'}, ['ポット: ', el('b',{},[String(r ? r.pot : 0)])]));
+  stat.appendChild(el('div', {class:'stat'}, [`ディール ${M.dealNum}/${MAX_DEALS} ・ ラウンド ${d.roundInDeal}/${HAND_SIZE}`]));
+  wrap.appendChild(stat);
+
+  // 公開履歴
+  const histPanel = el('div', {class:'panel'});
+  histPanel.appendChild(el('h2', {}, ['公開履歴（このディール）']));
+  const tbl = el('table');
+  tbl.appendChild(el('tr', {}, [el('th',{},['R']), el('th',{},['あなた']), el('th',{},['NPC']), el('th',{},['決着']), el('th',{},['勝者'])]));
+  tbl.appendChild(el('tr'));
+  tbl.removeChild(tbl.lastChild);
+  M.dealPublicHistory.forEach(h=>{
+    tbl.appendChild(el('tr', {}, [
+      el('td',{},[String(h.round)]),
+      el('td',{},[String(h.humanCard)]),
+      el('td',{},[String(h.npcCard)]),
+      el('td',{},[h.method==='fold'?'フォールド':'ショーダウン']),
+      el('td',{},[nameOf(h.winner)]),
+    ]));
+  });
+  if (!M.dealPublicHistory.length) histPanel.appendChild(el('p',{class:'sub'},['まだこのディールの決着はありません。']));
+  else histPanel.appendChild(tbl);
+  wrap.appendChild(histPanel);
+
+  // ラウンド本体
+  const roundPanel = el('div', {class:'panel'});
+  if (r.phase==='select_cards'){
+    roundPanel.appendChild(el('h2', {}, ['カードを1枚選んで伏せて出してください']));
+    const hand = el('div', {class:'hand'});
+    d.hand.human.forEach(c=>{
+      hand.appendChild(el('div', {class:'card', onclick:safe(()=>{
+        submitHumanCard(M, c);
+        afterStateChange();
+      })}, [String(c)]));
+    });
+    roundPanel.appendChild(hand);
+  } else if (r.phase==='betting'){
+    roundPanel.appendChild(el('h2', {}, ['ベット応酬']));
+    roundPanel.appendChild(el('p', {class:'sub'}, [`あなたの手番: ${r.toAct==='human' ? 'あなた' : 'NPC（考え中…）'}`]));
+    roundPanel.appendChild(renderHandRow(d.hand.human, r.cardsPlayed.human));
+    roundPanel.appendChild(renderBetLog(r));
+    if (r.toAct==='human'){
+      roundPanel.appendChild(renderActionButtons());
+    }
+  } else if (r.phase==='resolved'){
+    const last = M.dealPublicHistory[M.dealPublicHistory.length-1];
+    roundPanel.appendChild(el('h2', {}, ['決着']));
+    roundPanel.appendChild(el('div', {class:'result-big'}, [
+      `あなた=${last.humanCard} ／ NPC=${last.npcCard}　→　${nameOf(last.winner)}の勝ち（${last.method==='fold'?'フォールド':'ショーダウン'}）`
+    ]));
+    roundPanel.appendChild(renderBetLog(r));
+    const nextLabel = (d.roundInDeal>=HAND_SIZE) ? (M.dealNum>=MAX_DEALS ? '結果を見る' : '次のディールへ') : '次のラウンドへ';
+    roundPanel.appendChild(el('button', {class:'btn primary', onclick:safe(()=>{
+      advanceAfterResolution(M);
+      afterStateChange();
+    })}, [nextLabel]));
+  }
+  wrap.appendChild(roundPanel);
+
+  // ログ・操作パネル
+  const toolsPanel = el('div', {class:'panel'});
+  toolsPanel.appendChild(el('h2', {}, ['行動ログ']));
+  const logDiv = el('div', {id:'log'}, [M.matchLog.join('\n')]);
+  toolsPanel.appendChild(logDiv);
+  const toolsRow = el('div', {class:'row', style:'margin-top:10px;'});
+  toolsRow.appendChild(el('button', {class:'btn', onclick:safe(copyLog)}, ['ログコピー']));
+  const abortBtn = el('button', {class:'btn danger'+(abortArmed?' armed':''), onclick:safe(onAbortClick)}, [abortArmed ? '本当に中断？（4秒以内に再クリック）' : 'マッチを中断してNPC選択に戻る']);
+  toolsRow.appendChild(abortBtn);
+  toolsPanel.appendChild(toolsRow);
+  wrap.appendChild(toolsPanel);
+
+  return wrap;
+}
+
+function renderHandRow(cards, playedThisRound){
+  const box = el('div', {});
+  box.appendChild(el('p', {class:'sub'}, ['あなたの残り手札（このラウンドは既に1枚を伏せて提示済み）']));
+  const hand = el('div', {class:'hand'});
+  cards.forEach(c=> hand.appendChild(el('div', {class:'card mini disabled'}, [String(c)])));
+  hand.appendChild(el('div', {class:'card mini faceclosed'}, ['?']));
+  box.appendChild(hand);
+  return box;
+}
+
+function renderBetLog(r){
+  const box = el('div', {class:'panel', style:'background:#161c22;'});
+  box.appendChild(el('h2', {}, ['このラウンドのベット経過']));
+  if (!r.history.length){ box.appendChild(el('p', {class:'sub'}, ['まだアクションはありません。'])); return box; }
+  const lines = r.history.map(h=>{
+    if (h.action==='check') return `${nameOf(h.player)}: チェック`;
+    if (h.action==='bet') return `${nameOf(h.player)}: ベット ${h.amount}`;
+    if (h.action==='call') return `${nameOf(h.player)}: コール ${h.amount}${h.allIn?'（オールイン）':''}`;
+    if (h.action==='raise') return `${nameOf(h.player)}: レイズ +${h.amount}（支払${h.totalPaid}）`;
+    if (h.action==='fold') return `${nameOf(h.player)}: フォールド`;
+    return JSON.stringify(h);
+  });
+  box.appendChild(el('div', {style:'font-size:0.85rem; line-height:1.6;'}, [lines.join(' → ')]));
+  return box;
+}
+
+function renderActionButtons(){
+  const opts = computeOptions(M);
+  const box = el('div', {class:'row', style:'margin-top:10px;'});
+  if (opts.kind==='open'){
+    box.appendChild(el('button', {class:'btn', onclick:safe(()=>{ submitAction(M,'check'); afterStateChange(); })}, ['チェック']));
+    extractValues(opts.options,'bet').forEach(v=>{
+      box.appendChild(el('button', {class:'btn primary', onclick:safe(()=>{ submitAction(M,'bet',v); afterStateChange(); })}, ['ベット '+v]));
+    });
+  } else {
+    box.appendChild(el('button', {class:'btn danger', onclick:safe(()=>{ submitAction(M,'fold'); afterStateChange(); })}, ['フォールド']));
+    const callLabel = opts.toCall > M.chips.human ? `コール（オールイン ${M.chips.human}）` : `コール ${opts.toCall}`;
+    box.appendChild(el('button', {class:'btn primary', onclick:safe(()=>{ submitAction(M,'call'); afterStateChange(); })}, [callLabel]));
+    extractValues(opts.options,'raise').forEach(v=>{
+      box.appendChild(el('button', {class:'btn', onclick:safe(()=>{ submitAction(M,'raise',v); afterStateChange(); })}, ['レイズ +'+v]));
+    });
+  }
+  return box;
+}
+
+function renderEndScreen(){
+  const wrap = el('div', {});
+  wrap.appendChild(el('h1', {}, ['マッチ終了']));
+  const msg = M.result==='draw' ? '引き分け' : (M.result==='human_win' ? 'あなたの勝ち！' : 'NPCの勝ち');
+  const panel = el('div', {class:'panel'});
+  panel.appendChild(el('div', {class:'result-big'}, [msg]));
+  panel.appendChild(el('p', {}, [`最終チップ：あなた=${M.chips.human} ／ NPC=${M.chips.npc}`]));
+  panel.appendChild(el('button', {class:'btn primary', onclick:safe(()=>{ GEN++; M=null; render(); })}, ['NPC選択に戻る']));
+  wrap.appendChild(panel);
+
+  const logPanel = el('div', {class:'panel'});
+  logPanel.appendChild(el('h2', {}, ['行動ログ（このマッチ全文）']));
+  logPanel.appendChild(el('div', {id:'log'}, [M.matchLog.join('\n')]));
+  logPanel.appendChild(el('button', {class:'btn', style:'margin-top:10px;', onclick:safe(copyLog)}, ['ログコピー']));
+  wrap.appendChild(logPanel);
+  return wrap;
+}
+
+function copyLog(){
+  const text = (M ? M.matchLog.join('\n') : '');
+  const done = ()=> showToast('ログをコピーしました');
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=> fallbackCopy(text, done));
+  } else {
+    fallbackCopy(text, done);
+  }
+}
+function fallbackCopy(text, done){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  try{ document.execCommand('copy'); done(); }
+  catch(e){ showError('ログのコピーに失敗しました: '+e.message); }
+  document.body.removeChild(ta);
+}
+
+function onAbortClick(){
+  if (!abortArmed){
+    abortArmed = true;
+    render();
+    clearTimeout(abortTimer);
+    abortTimer = setTimeout(()=>{ abortArmed=false; render(); }, 4000);
+  } else {
+    clearTimeout(abortTimer);
+    backToSelect();
+  }
+}
+
+/* 初期表示 */
+render();
+</script>
+</body>
+</html>
