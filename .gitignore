@@ -19,3 +19,6 @@ sim/**/k1_run.log
 sim/**/run_process2.log
 sim/**/run_process3.log
 sim/**/run_process3prime.log
+
+sim/schrodinger_probe/results_process2.csv
+sim/schrodinger_probe/results_process3.csv
