@@ -1,0 +1,16 @@
+{
+  "database": {
+    "rules": "firebase/transmit4p_rules.json"
+  },
+  "emulators": {
+    "auth": {
+      "port": 9299
+    },
+    "database": {
+      "port": 9270
+    },
+    "ui": {
+      "enabled": false
+    }
+  }
+}

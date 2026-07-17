@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'nonce-transmit4p-v0' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com http://127.0.0.1:9299 http://127.0.0.1:9270 ws://127.0.0.1:9270; img-src 'self' data:;">
+<title>伝達核 4人版オンライン v0</title>
+<style>
+  :root{
+    --bg:#101418; --panel:#1a2027; --panel2:#212934; --line:#2e3742;
+    --text:#e7edf3; --muted:#8fa0b3; --accent:#4fb2e8; --good:#4fd18a;
+    --bad:#e85f5f; --warn:#e8b34f;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+  #app{ max-width:1080px; margin:0 auto; padding:16px 16px 80px; }
+  h1{ font-size:1.15rem; margin:8px 0 4px; }
+  h2{ font-size:1rem; margin:0 0 8px; color:var(--accent); }
+  .sub{ color:var(--muted); font-size:0.85rem; margin-bottom:16px; }
+  .panel{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:12px; }
+  .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .btn{ background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:10px 16px; font-size:0.95rem; cursor:pointer; }
+  .btn:hover{ border-color:var(--accent); }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+  .btn.primary{ background:#1d4a63; border-color:var(--accent); }
+  .btn.danger{ background:#4a1d1d; border-color:var(--bad); }
+  .btn.danger.armed{ background:var(--bad); color:#1a0000; font-weight:bold; }
+  input[type=text]{ background:#0b0e12; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:8px 10px; font-size:0.9rem; font-family:ui-monospace,Consolas,monospace; }
+  textarea{ background:#0b0e12; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:8px 10px; font-size:0.95rem; width:100%; resize:none; }
+  label.radio{ display:flex; align-items:center; gap:4px; font-size:0.9rem; }
+  .statbar{ display:flex; gap:18px; flex-wrap:wrap; font-size:0.9rem; margin-bottom:8px; }
+  .stat{ background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:6px 12px; }
+  .stat b{ color:var(--accent); }
+  .animalrow{ display:flex; gap:10px; flex-wrap:wrap; margin:10px 0; }
+  .animal{ min-width:64px; height:52px; padding:0 10px; border-radius:8px; background:var(--panel2); border:2px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:0.95rem; cursor:pointer; user-select:none; }
+  .animal.disabled{ cursor:not-allowed; opacity:0.35; }
+  .animal.static{ cursor:default; }
+  .animal.static:hover{ border-color:var(--line); transform:none; }
+  .animal:hover:not(.disabled):not(.static){ border-color:var(--accent); transform:translateY(-2px); }
+  .animal.mini{ height:34px; font-size:0.85rem; }
+  table{ width:100%; border-collapse:collapse; font-size:0.85rem; }
+  th,td{ text-align:center; padding:4px 6px; border-bottom:1px solid var(--line); }
+  th{ color:var(--muted); font-weight:normal; }
+  #log{ background:#0b0e12; border:1px solid var(--line); border-radius:8px; padding:8px 10px; max-height:180px; overflow-y:auto; font-family:ui-monospace,Consolas,monospace; font-size:0.78rem; white-space:pre-wrap; line-height:1.5; }
+  #errorBanner{ position:fixed; top:0; left:0; right:0; background:var(--bad); color:#1a0000; padding:10px 16px; font-weight:bold; z-index:100; text-align:center; }
+  #versionBanner{ position:fixed; top:0; left:0; right:0; background:var(--warn); color:#1a1400; padding:10px 16px; font-weight:bold; z-index:99; text-align:center; }
+  #toast{ position:fixed; bottom:56px; left:50%; transform:translateX(-50%); background:var(--good); color:#062; padding:8px 16px; border-radius:8px; font-weight:bold; z-index:100; }
+  #verBadge{ position:fixed; right:10px; bottom:10px; background:var(--panel2); border:1px solid var(--line); color:var(--muted); font-size:0.72rem; padding:4px 8px; border-radius:6px; z-index:50; }
+  .hintline{ font-size:0.85rem; margin:2px 0; }
+  .hintline .tag{ display:inline-block; padding:1px 6px; border-radius:8px; font-size:0.72rem; margin-right:6px; }
+  .tag.mine{ background:#1d4a63; }
+  .tag.theirs{ background:#4a2f1d; }
+  .result-big{ font-size:1.3rem; font-weight:bold; margin:10px 0; }
+  .gauge{ width:100%; max-width:240px; height:14px; background:#0b0e12; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .gauge-fill{ height:100%; background:var(--good); transition:width 0.2s linear; }
+  .gauge-fill.warn{ background:var(--warn); }
+  .gauge-fill.bad{ background:var(--bad); }
+  .charcount{ font-size:0.78rem; color:var(--muted); }
+  .charcount.over{ color:var(--bad); }
+</style>
+</head>
+<body>
+<div id="versionBanner" hidden></div>
+<div id="errorBanner" hidden></div>
+<div id="toast" hidden></div>
+<div id="app"></div>
+<div id="verBadge"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script nonce="transmit4p-v0">
+'use strict';
+
+/* ============================================================
+   伝達核 4人版オンラインプロトタイプ v0
+   典拠: proto/核定義_伝達核v1.0_動物軸版_凍結_2026-07-17.md（数値・表の正本）
+        + 指示書「伝達核4人版オンラインプロトタイプv0実装 v1」（差分仕様）
+   本書に明記のない要素はすべて上記凍結定義（ソロ版）を踏襲する。
+   ============================================================ */
+
+const VER = "4p-v0.1.0";
+const ROOT = "transmit4pRoomsV0";
+// 本番Firebaseプロジェクト未設定（実装者の権限外・§9-e）。空のままだと下記が「未設定」動作になる。
+const FIREBASE_CONFIG = {};
+
+/* ---------------- 凍結データ（核定義v1.0 §2。改変・追加禁止） ---------------- */
+const ANIMALS = ['ゾウ','ウマ','ライオン','オオカミ','サル','ネコ','ウサギ','ネズミ'];
+const AXES = ['体重','速さ','寿命','危険度','かわいさ','人気','五十音','群れ'];
+const AXIS_ORDER = {
+  '体重':    ['ゾウ','ウマ','ライオン','オオカミ','サル','ネコ','ウサギ','ネズミ'],
+  '速さ':    ['ウマ','ライオン','ウサギ','オオカミ','ネコ','ゾウ','サル','ネズミ'],
+  '寿命':    ['ゾウ','ウマ','サル','ライオン','ネコ','オオカミ','ウサギ','ネズミ'],
+  '危険度':  ['ライオン','ゾウ','オオカミ','ウマ','サル','ネズミ','ネコ','ウサギ'],
+  'かわいさ':['ネコ','ウサギ','ネズミ','サル','ウマ','ゾウ','オオカミ','ライオン'],
+  '人気':    ['ネコ','ウサギ','ウマ','ゾウ','サル','ライオン','オオカミ','ネズミ'],
+  '五十音':  ['ライオン','ネズミ','ネコ','ゾウ','サル','オオカミ','ウマ','ウサギ'],
+  '群れ':    ['ネズミ','ウサギ','サル','ウマ','オオカミ','ゾウ','ライオン','ネコ'],
+};
+const RANK_OF = {};
+AXES.forEach(axis=>{
+  RANK_OF[axis] = {};
+  AXIS_ORDER[axis].forEach((animal,i)=>{ RANK_OF[axis][animal] = 8 - i; });
+});
+const HINT_TABLE = [
+  {axis:'体重', tier:'遠', text:'一緒にエレベーターに乗りたくない順', interp:['体重','危険度']},
+  {axis:'体重', tier:'遠', text:'踏まれたら終わりな順', interp:['体重','危険度']},
+  {axis:'体重', tier:'中', text:'体重計が悲鳴を上げる順', interp:['体重']},
+  {axis:'体重', tier:'直', text:'重い順', interp:['体重']},
+  {axis:'速さ', tier:'遠', text:'逃げても無駄な順', interp:['速さ','危険度']},
+  {axis:'速さ', tier:'遠', text:'運動会で頼りになる順', interp:['速さ']},
+  {axis:'速さ', tier:'中', text:'徒競走で勝つ順', interp:['速さ']},
+  {axis:'速さ', tier:'直', text:'足が速い順', interp:['速さ']},
+  {axis:'寿命', tier:'遠', text:'長い付き合いになる順', interp:['寿命','人気']},
+  {axis:'寿命', tier:'遠', text:'おじいちゃんになるまでが長い順', interp:['寿命']},
+  {axis:'寿命', tier:'中', text:'還暦に近づける順', interp:['寿命']},
+  {axis:'寿命', tier:'直', text:'寿命が長い順', interp:['寿命']},
+  {axis:'危険度', tier:'遠', text:'夜道で会いたくない順', interp:['危険度','体重']},
+  {axis:'危険度', tier:'遠', text:'保険料が上がりそうな順', interp:['危険度']},
+  {axis:'危険度', tier:'中', text:'猛獣注意の看板になる順', interp:['危険度','体重']},
+  {axis:'危険度', tier:'直', text:'人間にとって危険な順', interp:['危険度']},
+  {axis:'かわいさ', tier:'遠', text:'写真フォルダが埋まりそうな順', interp:['かわいさ','人気']},
+  {axis:'かわいさ', tier:'遠', text:'ぬいぐるみにしたい順', interp:['かわいさ','人気']},
+  {axis:'かわいさ', tier:'中', text:'頬がゆるむ順', interp:['かわいさ']},
+  {axis:'かわいさ', tier:'直', text:'かわいい順', interp:['かわいさ']},
+  {axis:'人気', tier:'遠', text:'握手会に行列ができる順', interp:['人気','かわいさ']},
+  {axis:'人気', tier:'遠', text:'テレビ出演が多い順', interp:['人気']},
+  {axis:'人気', tier:'中', text:'ファンが多い順', interp:['人気','かわいさ']},
+  {axis:'人気', tier:'直', text:'人気が高い順', interp:['人気']},
+  {axis:'五十音', tier:'遠', text:'図鑑の後ろの方にいる順', interp:['五十音']},
+  {axis:'五十音', tier:'遠', text:'出席番号が大きい順', interp:['五十音']},
+  {axis:'五十音', tier:'中', text:'辞書で後に出てくる順', interp:['五十音']},
+  {axis:'五十音', tier:'直', text:'五十音で後ろの順', interp:['五十音']},
+  {axis:'群れ', tier:'遠', text:'一匹でいるところを見ない順', interp:['群れ']},
+  {axis:'群れ', tier:'遠', text:'大家族な順', interp:['群れ']},
+  {axis:'群れ', tier:'中', text:'集団行動が得意な順', interp:['群れ']},
+  {axis:'群れ', tier:'直', text:'群れが大きい順', interp:['群れ']},
+];
+const HINT_SCHEDULE = { 1:'遠', 2:'遠', 3:'中', 4:'直' }; // 4人版差分：両陣営が毎回並行して同じ等級を送る
+const ANCHOR_K = 2; // 凍結定義の値（v1.0ソロ版のアンカー枚数を踏襲）
+
+const BET_OPTIONS = [1,2,3,5];
+const MAX_RAISES = 3;
+const INITIAL_LIFE = 30;
+const ROUNDS_TOTAL = 8;
+const DRAIN_INTERVALS = { off:null, slow:30000, standard:15000, fast:7000 };
+const HINT_LOCK_TIMEOUT_MS = 60000;
+const HINT_AMBIENT_REFERENCE_MS = 15000; // 「基準ドレイン速度」= standard固定。1/4で使用（暫定選択・報告書参照）
+const HINT_TEXT_MAX_LEN = 40;
+
+/* ---------------- ヒント入力フィルタ（§3。全文を報告書に記載） ---------------- */
+const FILTER_DIGIT_REGEX = /[0-9０-９一二三四五六七八九十]/;
+const FILTER_RANK_WORDS = ["番目","順位","ランク","ランキング","最大","最小","最強","最弱","一番","トップ","ビリ","びり","最下位","首位","上位","下位","ワースト","ベスト"];
+function hintFilterViolation(text){
+  if (typeof text !== 'string') return 'invalid';
+  if (text.length === 0) return 'empty';
+  if (text.length > HINT_TEXT_MAX_LEN) return 'too_long';
+  if (FILTER_DIGIT_REGEX.test(text)) return 'digit';
+  for (const w of FILTER_RANK_WORDS) if (text.includes(w)) return 'rank_word:'+w;
+  return null;
+}
+
+/* ---------------- 汎用ユーティリティ ---------------- */
+function nowMs(){ return Date.now(); }
+function randomId(){ return Math.random().toString(36).slice(2) + '-' + nowMs(); }
+function shuffleArr(arr, rng){
+  const a = arr.slice();
+  const r = rng || Math.random;
+  for (let i=a.length-1;i>0;i--){ const j = Math.floor(r()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; }
+  return a;
+}
+const TEAM_OF_SEAT = { 0:'A', 1:'A', 2:'B', 3:'B' };
+const ROLE_OF_SEAT = { 0:'observer', 1:'diver', 2:'observer', 3:'diver' };
+function observerSeatOf(team){ return team==='A' ? 0 : 2; }
+function diverSeatOf(team){ return team==='A' ? 1 : 3; }
+function otherTeam(team){ return team==='A' ? 'B' : 'A'; }
+
+/* ==================== 純粋エンジン（ベット応酬。ソロ版v1.0のロジックを4人版向けに再構成） ==================== */
+function extractValues(options, prefix){
+  return options.filter(o=>o.startsWith(prefix+':')).map(o=>Number(o.split(':')[1]));
+}
+function computeBetOptions(betting, chips){
+  const team = betting.toActTeam;
+  const remaining = chips[team];
+  if (betting.currentBet === 0){
+    const bets = BET_OPTIONS.filter(v=>v<=remaining);
+    return { kind:'open', options:['check', ...bets.map(v=>'bet:'+v)] };
+  }
+  const toCall = betting.currentBet - betting.contributions[team];
+  const canRaise = betting.raiseCount < MAX_RAISES;
+  const raises = canRaise ? BET_OPTIONS.filter(rv => (toCall+rv) <= remaining) : [];
+  return { kind:'facing', options:['fold','call', ...raises.map(v=>'raise:'+v)], toCall };
+}
+// 純粋関数：{betting, chips, pot} を受け取り、新しい{betting, chips, pot, resolved}を返す。DOM/Firebase非依存。
+function applyBetAction(state, action, amount){
+  const betting = JSON.parse(JSON.stringify(state.betting));
+  const chips = JSON.parse(JSON.stringify(state.chips));
+  let pot = state.pot;
+  const team = betting.toActTeam; const other = otherTeam(team);
+  const remaining = chips[team];
+  let resolved = null; // {method, winnerTeam|null, tie}
+
+  if (action==='check'){
+    if (betting.currentBet !== 0) throw new Error('ベットが存在するためチェックできません');
+    betting.history.push({team, action:'check'});
+    const priorChecks = betting.history.filter(h=>h.action==='check').length;
+    if (priorChecks>=2) resolved = {method:'showdown'};
+    else betting.toActTeam = other;
+  } else if (action==='bet'){
+    const v = amount;
+    if (betting.currentBet!==0) throw new Error('既にベットが存在します');
+    if (!BET_OPTIONS.includes(v) || v>remaining) throw new Error('不正なベット額です');
+    betting.contributions[team]+=v; chips[team]-=v; pot+=v; betting.currentBet=v;
+    betting.history.push({team, action:'bet', amount:v});
+    betting.toActTeam = other;
+  } else if (action==='call'){
+    if (betting.currentBet===0) throw new Error('コール対象がありません');
+    const toCall = betting.currentBet - betting.contributions[team];
+    const pay = Math.min(toCall, remaining);
+    betting.contributions[team]+=pay; chips[team]-=pay; pot+=pay;
+    betting.history.push({team, action:'call', amount:pay, allIn: pay<toCall});
+    resolved = {method:'showdown'};
+  } else if (action==='raise'){
+    if (betting.currentBet===0) throw new Error('レイズ対象がありません');
+    if (betting.raiseCount>=MAX_RAISES) throw new Error('レイズ上限に達しています');
+    const rv = amount;
+    const toCall = betting.currentBet - betting.contributions[team];
+    const total = toCall+rv;
+    if (!BET_OPTIONS.includes(rv) || total>remaining) throw new Error('不正なレイズ額です');
+    betting.contributions[team]+=total; chips[team]-=total; pot+=total;
+    betting.currentBet = betting.contributions[team];
+    betting.raiseCount+=1;
+    betting.history.push({team, action:'raise', amount:rv, totalPaid:total});
+    betting.toActTeam = other;
+  } else if (action==='fold'){
+    betting.history.push({team, action:'fold'});
+    resolved = {method:'fold', winnerTeam: other};
+  } else {
+    throw new Error('不明なアクション: '+action);
+  }
+  return { betting, chips, pot, resolved };
+}
+
+// ショーダウン判定（核仕様：2軸差分の暫定解決。報告書「最重要の暫定選択」参照）
+// 同一動物は常に引き分け（ソロ版§4-5を継承）。それ以外はチームごとの自陣軸での順位を比較する。
+function resolveShowdown(animalA, animalB, axisA, axisB){
+  if (animalA === animalB) return { tie:true, winnerTeam:null };
+  const rankA = RANK_OF[axisA][animalA];
+  const rankB = RANK_OF[axisB][animalB];
+  if (rankA === rankB) return { tie:true, winnerTeam:null }; // 数値偶然一致（構造上あり得る。引き分け扱い）
+  return { tie:false, winnerTeam: rankA > rankB ? 'A' : 'B' };
+}
+
+/* ==================== NPC思考ロジック（Phase1・npc2モード。ソロ版v1.0の移植＋自陣軸限定に簡略化） ==================== */
+const NPC_MIX_RATE = 0.15;
+function npcCandidateSet(axis, anchors){
+  // 4人版の暫定簡略化：NPCは「自陣の軸」のみを推論対象とし、相手陣営の軸は推測しない（報告書に明記）。
+  // 伝達スクリプト用の候補集合は、自陣アンカー（消去された軸）を除いた残り軸。
+  return AXES.filter(a => !anchors.includes(a) && a !== undefined);
+}
+function npcPickHint(trueAxis, tier, usedTexts){
+  const candidates = HINT_TABLE.filter(h => h.axis===trueAxis && h.tier===tier && !usedTexts.has(h.text));
+  if (!candidates.length) throw new Error('NPCヒント候補が枯渇（データ構造上通常発生しない状態）');
+  return candidates[Math.floor(Math.random()*candidates.length)].text;
+}
+function npcChooseAnimal(remaining, oppRemaining, trueAxis){
+  if (remaining.length===1 || Math.random() < NPC_MIX_RATE){
+    return remaining[Math.floor(Math.random()*remaining.length)];
+  }
+  let best = remaining[0], bestScore = -1;
+  for (const s of remaining){
+    let wc = 0;
+    for (const t of oppRemaining) if (RANK_OF[trueAxis][s] > RANK_OF[trueAxis][t]) wc++;
+    const score = wc / oppRemaining.length;
+    if (score > bestScore){ bestScore = score; best = s; }
+  }
+  return best;
+}
+function npcConfidence(animal, oppRemaining, trueAxis){
+  let wc = 0;
+  for (const t of oppRemaining) if (RANK_OF[trueAxis][animal] > RANK_OF[trueAxis][t]) wc++;
+  return wc / oppRemaining.length;
+}
+function nearestAvailable(desired, list){
+  return list.slice().sort((a,b)=>Math.abs(a-desired)-Math.abs(b-desired))[0];
+}
+function npcDecideAction(conf, opts){
+  if (opts.kind==='open'){
+    const bets = extractValues(opts.options,'bet');
+    if (conf<0.45 || !bets.length) return {action:'check'};
+    const desired = conf<0.60 ? 1 : (conf<0.72 ? 2 : (conf<0.85 ? 3 : 5));
+    return {action:'bet', amount: nearestAvailable(desired, bets)};
+  }
+  const raises = extractValues(opts.options,'raise');
+  if (conf<0.35) return {action:'fold'};
+  if (conf<0.65 || !raises.length) return {action:'call'};
+  const desired = conf<0.80 ? 1 : (conf<0.92 ? 3 : 5);
+  return {action:'raise', amount: nearestAvailable(desired, raises)};
+}
+
+/* ==================== Firebase グルー ==================== */
+let auth = null, db = null, user = null;
+let ST = { room:null, seat:null, meta:null, seats:{}, game:null, myPrivate:null, oppNames:{} };
+let listeners = [];
+let heartbeatTimer = null;
+let hostRelayUnsub = null;
+let GEN = 0;
+
+const SESSION_KEY = 'transmit4p_session_v0';
+function saveSession(){ localStorage.setItem(SESSION_KEY, JSON.stringify({room:ST.room, seat:ST.seat})); }
+function clearSession(){ localStorage.removeItem(SESSION_KEY); }
+
+const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function newCode(){
+  let s = '';
+  const arr = new Uint32Array(6);
+  crypto.getRandomValues(arr);
+  arr.forEach(x=> s += CODE_CHARS[x % CODE_CHARS.length]);
+  return s;
+}
+function normalizeCode(v){ return String(v||'').toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g,'').slice(0,6); }
+
+function roomRef(path){ return db.ref(`${ROOT}/${ST.room}${path ? '/'+path : ''}`); }
+function isHost(){ return !!(user && ST.meta && ST.meta.hostUid === user.uid); }
+
+async function bootstrap(){
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    auth = firebase.auth(); db = firebase.database();
+    const q = new URLSearchParams(location.search);
+    const local = location.hostname === 'localhost' || /^127\./.test(location.hostname);
+    if (local && q.get('emulator')==='1'){
+      auth.useEmulator('http://127.0.0.1:9299', {disableWarnings:true});
+      db.useEmulator('127.0.0.1', 9270);
+    }
+    await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    auth.onAuthStateChanged(async u=>{
+      if (!u){ await auth.signInAnonymously(); return; }
+      user = u;
+      await restoreSession();
+      render();
+    });
+  } catch(e){ showError('初期化に失敗しました: '+(e && e.message ? e.message : e)); }
+}
+
+async function restoreSession(){
+  let s = null;
+  try{ s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch(_){ clearSession(); }
+  if (!s || !s.room) return;
+  const code = normalizeCode(s.room);
+  if (code.length !== 6) { clearSession(); return; }
+  try{
+    const meta = (await db.ref(`${ROOT}/${code}/meta`).get()).val();
+    if (!meta){ clearSession(); return; }
+    const seat = (await db.ref(`${ROOT}/${code}/seats/${s.seat}`).get()).val();
+    if (seat && seat.uid === user.uid){ ST.room = code; ST.seat = Number(s.seat); attach(); }
+    else clearSession();
+  } catch(_){ clearSession(); }
+}
+
+async function createRoom(mode, drainSpeed, hintDrainToggle, name){
+  const meta = { hostUid:user.uid, phase:'lobby', mode, drainSpeed, hintDrainToggle, version:VER, createdAt: nowMs() };
+  let code = '', created = false;
+  for (let i=0;i<8;i++){
+    code = newCode();
+    try{ await db.ref(`${ROOT}/${code}/meta`).set(meta); created = true; break; }
+    catch(e){ if (e && e.code !== 'PERMISSION_DENIED') throw e; }
+  }
+  if (!created) throw new Error('ルームコードを確保できませんでした。もう一度お試しください');
+  await db.ref(`${ROOT}/${code}/seats/0`).set({ uid:user.uid, name, lastSeen: nowMs(), isNpc:false });
+  if (mode === 'npc2'){
+    await db.ref(`${ROOT}/${code}/seats/2`).set({ uid:'NPC', name:'NPC観測員', lastSeen: nowMs(), isNpc:true });
+    await db.ref(`${ROOT}/${code}/seats/3`).set({ uid:'NPC', name:'NPC潜水士', lastSeen: nowMs(), isNpc:true });
+  }
+  ST.room = code; ST.seat = 0; saveSession(); attach();
+}
+
+async function joinRoom(codeInput, seatChoice, name){
+  const code = normalizeCode(codeInput);
+  if (code.length !== 6) throw new Error('部屋コードは6文字です');
+  const r = db.ref(`${ROOT}/${code}`);
+  const meta = (await r.child('meta').get()).val();
+  if (!meta) throw new Error('その部屋は見つかりません');
+  const candidates = seatChoice!=null ? [seatChoice] : [0,1,2,3];
+  let seatNo = null;
+  for (const i of candidates){
+    if (TEAM_OF_SEAT[i]===undefined) continue;
+    const result = await r.child(`seats/${i}`).transaction(cur => cur || { uid:user.uid, name, lastSeen: nowMs(), isNpc:false }, undefined, false);
+    if (result.committed && result.snapshot.val() && result.snapshot.val().uid === user.uid){ seatNo = i; break; }
+  }
+  if (seatNo===null) throw new Error('その部屋には空席がありません');
+  ST.room = code; ST.seat = seatNo; saveSession(); attach();
+}
+
+// Firebase RTDBは空配列/空オブジェクトを書き込むと消滅させる（既知の仕様）。
+// 読み込み側で必ずデフォルト値へフォールバックし、undefined参照を防ぐ。
+function normalizeGame(g){
+  if (!g) return g;
+  g.usedAnimals = g.usedAnimals || {};
+  g.usedAnimals.A = g.usedAnimals.A || [];
+  g.usedAnimals.B = g.usedAnimals.B || [];
+  g.hand = g.hand || {};
+  g.hand.A = g.hand.A || ANIMALS.slice();
+  g.hand.B = g.hand.B || ANIMALS.slice();
+  g.publicHints = g.publicHints || [];
+  g.publicConstraints = g.publicConstraints || [];
+  g.roundHistory = g.roundHistory || [];
+  g.log = g.log || [];
+  g.chips = g.chips || { A: INITIAL_LIFE, B: INITIAL_LIFE };
+  g.score = g.score || { A: 0, B: 0 };
+  // cardsRevealedはA/Bどちらかがnullのままだと、そのキー単独がRTDBで刈り取られ得る
+  // （片方が確定した後も、もう片方はundefinedとして返る）。=== null 判定を正しく保つため、
+  // undefinedを明示的にnullへ補完する（配列/オブジェクト全体が空になる場合の刈り取りとは別枠）。
+  g.cardsRevealed = g.cardsRevealed || {};
+  if (g.cardsRevealed.A === undefined) g.cardsRevealed.A = null;
+  if (g.cardsRevealed.B === undefined) g.cardsRevealed.B = null;
+  if (g.betting){
+    g.betting.history = g.betting.history || [];
+    g.betting.contributions = g.betting.contributions || { A:0, B:0 };
+  }
+  if (g.hint){
+    g.hint.lockedA = !!g.hint.lockedA;
+    g.hint.lockedB = !!g.hint.lockedB;
+  }
+  g.drain = g.drain || { phaseEnteredAt: nowMs(), ticksApplied: 0 };
+  return g;
+}
+
+function detach(){
+  listeners.forEach(off=>{ try{ off(); } catch(_){} });
+  listeners = [];
+  if (heartbeatTimer){ clearInterval(heartbeatTimer); heartbeatTimer=null; }
+  if (hostRelayUnsub){ hostRelayUnsub(); hostRelayUnsub=null; }
+}
+
+function attach(){
+  detach();
+  GEN++;
+  const gen = GEN;
+  const metaRef = roomRef('meta');
+  const onMeta = snap => { if (gen!==GEN) return; ST.meta = snap.val(); if (!ST.meta){ handleRoomGone(); return; } afterSync(); };
+  metaRef.on('value', onMeta); listeners.push(()=>metaRef.off('value', onMeta));
+
+  const seatsRef = roomRef('seats');
+  const onSeats = snap => { if (gen!==GEN) return; ST.seats = snap.val() || {}; afterSync(); };
+  seatsRef.on('value', onSeats); listeners.push(()=>seatsRef.off('value', onSeats));
+
+  const gameRef = roomRef('game');
+  const onGame = snap => { if (gen!==GEN) return; ST.game = normalizeGame(snap.val()); afterSync(); };
+  gameRef.on('value', onGame); listeners.push(()=>gameRef.off('value', onGame));
+
+  const myPrivRef = roomRef(`private/${user.uid}`);
+  const onMyPriv = snap => { if (gen!==GEN) return; ST.myPrivate = snap.val(); afterSync(); };
+  myPrivRef.on('value', onMyPriv); listeners.push(()=>myPrivRef.off('value', onMyPriv));
+
+  const beat = ()=> roomRef(`seats/${ST.seat}`).update({lastSeen: nowMs()}).catch(()=>{});
+  beat(); heartbeatTimer = setInterval(beat, 15000);
+
+  startHostRelayIfHost();
+}
+
+function handleRoomGone(){
+  clearSession();
+  ST = { room:null, seat:null, meta:null, seats:{}, game:null, myPrivate:null, oppNames:{} };
+  detach();
+  render();
+}
+
+function afterSync(){
+  render();
+  if (isHost()){
+    startHostRelayIfHost(); // ST.metaの初回到達がattach()より後になるため、同期の都度リトライする（冪等）
+    hostRelayTick();
+  }
+}
+
+function leaveRoom(){
+  clearSession();
+  detach();
+  ST = { room:null, seat:null, meta:null, seats:{}, game:null, myPrivate:null, oppNames:{} };
+  render();
+}
+
+/* ---------------- ホスト中継ロジック（秘匿真軸を必要とする処理は全てホストが担う） ---------------- */
+function startHostRelayIfHost(){
+  // 個々のprivateノードは自分のuidしか購読しないため、ホストは全体private/を購読して中継する
+  if (!isHost()) return;
+  if (hostRelayUnsub) return; // 二重登録防止
+  const allPrivRef = roomRef('private');
+  const cb = snap => { ST.allPrivate = snap.val() || {}; hostRelayTick(); };
+  allPrivRef.on('value', cb);
+  hostRelayUnsub = ()=> allPrivRef.off('value', cb);
+}
+
+let relayBusy = false;
+let relayPending = false;
+// hostRelayTick は各購読（meta/seats/game/private）のvalueイベントごとに再入されうる。
+// 実行中に届いた再入は取りこぼさず「pending」として記録し、実行完了後に必ずもう一度回す
+// （さもないと配布直後など、次のイベントが来ない限り進行が永遠に止まる競合が生じる）。
+async function hostRelayTick(){
+  if (!isHost()) return;
+  if (relayBusy){ relayPending = true; return; }
+  relayBusy = true;
+  try{
+    if (!ST.meta) return;
+    if (ST.meta.phase === 'setup') { await hostPerformInitialDeal(); }
+    else if (ST.meta.phase === 'playing' && ST.game) {
+      await hostSettleDrain();
+      await hostRelayInputs();
+      await hostMaybeAdvancePhase();
+      await hostDriveNpcIfNeeded();
+    }
+  } catch(e){ showError('内部処理エラー: '+(e && e.message?e.message:e)); }
+  finally {
+    relayBusy = false;
+    if (relayPending){ relayPending = false; hostRelayTick(); }
+  }
+}
+
+function allSeatsFilled(){
+  for (let i=0;i<4;i++){ if (!ST.seats || !ST.seats[i] || !ST.seats[i].uid) return false; }
+  return true;
+}
+
+async function hostStartSetup(){
+  if (!isHost()) return;
+  await roomRef('meta').update({ phase:'setup' });
+}
+
+async function hostPerformInitialDeal(){
+  const existing = (await roomRef('secrets').get()).val();
+  if (existing) { await roomRef('meta').update({phase:'playing'}); return; }
+  const axesShuffled = shuffleArr(AXES);
+  const axisA = axesShuffled[0], axisB = axesShuffled[1];
+  const remaining6 = axesShuffled.slice(2);
+  const anchorsDiverA = shuffleArr(remaining6).slice(0, ANCHOR_K);
+  const rest = remaining6.filter(a=>!anchorsDiverA.includes(a));
+  const anchorsDiverB = shuffleArr(rest).slice(0, ANCHOR_K);
+
+  await roomRef('secrets').set({ axisA, axisB, createdAt: nowMs() });
+  const seats = ST.seats;
+  await roomRef(`private/${seats[0].uid}`).set({ axis: axisA });
+  await roomRef(`private/${seats[1].uid}`).set({ anchors: anchorsDiverA });
+  await roomRef(`private/${seats[2].uid}`).set({ axis: axisB });
+  await roomRef(`private/${seats[3].uid}`).set({ anchors: anchorsDiverB });
+
+  const gameInit = {
+    roundNum: 0,
+    phase: 'resolved', // hostMaybeAdvancePhase が最初のラウンドを開始する
+    hint: { active:false, tier:null, deadlineAt:0, lockedA:false, lockedB:false },
+    publicHints: [], publicConstraints: [], roundHistory: [],
+    chips: { A: INITIAL_LIFE, B: INITIAL_LIFE }, score: { A:0, B:0 }, pot: 0,
+    usedAnimals: { A: [], B: [] }, hand: { A: ANIMALS.slice(), B: ANIMALS.slice() },
+    cardsRevealed: { A:null, B:null },
+    betting: null,
+    drain: { phaseEnteredAt: nowMs(), ticksApplied: 0 },
+    log: [],
+  };
+  await roomRef('game').set(gameInit);
+  await roomRef('meta').update({ phase:'playing' });
+}
+
+function logLine(gameObj, text){ gameObj.log = gameObj.log || []; gameObj.log.push(text); }
+
+async function hostMaybeAdvancePhase(){
+  const g = ST.game;
+  if (!g || g.phase !== 'resolved') return;
+  if (g.roundNum >= ROUNDS_TOTAL || g.chips.A<=0 || g.chips.B<=0){
+    await hostFinalizeMatch();
+    return;
+  }
+  const next = JSON.parse(JSON.stringify(g));
+  next.roundNum += 1;
+  const tier = HINT_SCHEDULE[next.roundNum];
+  if (tier){
+    next.phase = 'hint';
+    next.hint = { active:true, tier, deadlineAt: nowMs()+HINT_LOCK_TIMEOUT_MS, lockedA:false, lockedB:false };
+    next.drain.phaseEnteredAt = nowMs(); next.drain.ticksApplied = 0;
+    logLine(next, `[R${next.roundNum}] ヒントフェーズ開始（等級:${tier}、締切60秒）`);
+  } else {
+    startAnteAndCards(next);
+  }
+  await roomRef('game').set(next);
+}
+
+function startAnteAndCards(g){
+  g.chips.A -= 1; g.chips.B -= 1; g.pot += 2;
+  logLine(g, `[R${g.roundNum}] アンティ 各1（燃焼・ポット${g.pot}）`);
+  g.phase = 'select_cards';
+  g.cardsRevealed = { A:null, B:null };
+  g.drain.phaseEnteredAt = nowMs(); g.drain.ticksApplied = 0;
+  if (g.chips.A<=0 || g.chips.B<=0){ g.phase='resolved'; g.matchOverPending=true; }
+}
+
+async function hostRelayInputs(){
+  const g = JSON.parse(JSON.stringify(ST.game));
+  const priv = ST.allPrivate || {};
+  let changed = false;
+
+  if (g.phase === 'hint'){
+    const seatA = ST.seats[0], seatB = ST.seats[2];
+    const pA = priv[seatA && seatA.uid] || {};
+    const pB = priv[seatB && seatB.uid] || {};
+    if (pA.hintLocked && !g.hint.lockedA){ g.hint.lockedA = true; changed = true; }
+    if (pB.hintLocked && !g.hint.lockedB){ g.hint.lockedB = true; changed = true; }
+    const bothLocked = g.hint.lockedA && g.hint.lockedB;
+    const timedOut = nowMs() >= g.hint.deadlineAt;
+    if ((bothLocked || timedOut) && g.hint.active){
+      const textA = (pA.hintText || '(無線沈黙)').slice(0, HINT_TEXT_MAX_LEN);
+      const textB = (pB.hintText || '(無線沈黙)').slice(0, HINT_TEXT_MAX_LEN);
+      g.publicHints.push({ round:g.roundNum, side:'A', text: pA.hintLocked ? textA : '(無線沈黙)' });
+      g.publicHints.push({ round:g.roundNum, side:'B', text: pB.hintLocked ? textB : '(無線沈黙)' });
+      logLine(g, `[R${g.roundNum}] ヒント公開：味方=${pA.hintLocked?textA:'(無線沈黙)'} ／ 敵=${pB.hintLocked?textB:'(無線沈黙)'}`);
+      g.hint.active = false;
+      startAnteAndCards(g);
+      changed = true;
+      await roomRef(`private/${seatA.uid}`).update({ hintLocked:null, hintText:null });
+      await roomRef(`private/${seatB.uid}`).update({ hintLocked:null, hintText:null });
+    }
+  } else if (g.phase === 'select_cards'){
+    const diverA = ST.seats[1], diverB = ST.seats[3];
+    const pA = priv[diverA && diverA.uid] || {};
+    const pB = priv[diverB && diverB.uid] || {};
+    if (pA.pendingCard && g.cardsRevealed.A===null){ g.cardsRevealed.A = pA.pendingCard; changed = true; }
+    if (pB.pendingCard && g.cardsRevealed.B===null){ g.cardsRevealed.B = pB.pendingCard; changed = true; }
+    if (g.cardsRevealed.A!==null && g.cardsRevealed.B!==null && g.phase==='select_cards'){
+      g.phase = 'betting';
+      g.betting = { toActTeam: (g.roundNum % 2 === 1) ? 'A' : 'B', currentBet:0, contributions:{A:0,B:0}, raiseCount:0, history:[] };
+      logLine(g, `[R${g.roundNum}] 両者提示完了。ベット開始（先手=${g.betting.toActTeam==='A'?'味方':'敵'}）`);
+      changed = true;
+      await roomRef(`private/${diverA.uid}`).update({ pendingCard:null });
+      await roomRef(`private/${diverB.uid}`).update({ pendingCard:null });
+    }
+  } else if (g.phase === 'betting'){
+    const team = g.betting.toActTeam;
+    const diverSeat = ST.seats[diverSeatOf(team)];
+    const p = priv[diverSeat && diverSeat.uid] || {};
+    if (p.pendingBet && p.pendingBet.round === g.roundNum && p.pendingBet.betSeq === g.betting.history.length){
+      try{
+        const applied = applyBetAction({betting:g.betting, chips:g.chips, pot:g.pot}, p.pendingBet.action, p.pendingBet.amount);
+        g.betting = applied.betting; g.chips = applied.chips; g.pot = applied.pot;
+        logLine(g, `[R${g.roundNum}] ${team==='A'?'味方':'敵'}: ${describeBetAction(p.pendingBet)}`);
+        changed = true;
+        await roomRef(`private/${diverSeat.uid}`).update({ pendingBet:null });
+        if (applied.resolved) await finishRoundInGame(g, applied.resolved);
+      } catch(e){
+        await roomRef(`private/${diverSeat.uid}`).update({ pendingBet:null });
+      }
+    }
+  }
+  if (changed) await roomRef('game').set(g);
+}
+
+function describeBetAction(pb){
+  if (pb.action==='check') return 'チェック';
+  if (pb.action==='bet') return 'ベット '+pb.amount;
+  if (pb.action==='call') return 'コール';
+  if (pb.action==='raise') return 'レイズ +'+pb.amount;
+  if (pb.action==='fold') return 'フォールド';
+  return JSON.stringify(pb);
+}
+
+async function finishRoundInGame(g, resolved){
+  const secrets = (await roomRef('secrets').get()).val();
+  const animalA = g.cardsRevealed.A, animalB = g.cardsRevealed.B;
+  g.usedAnimals.A.push(animalA); g.usedAnimals.B.push(animalB);
+  let tie=false, winnerTeam=null;
+  if (resolved.method==='fold'){
+    winnerTeam = resolved.winnerTeam;
+  } else {
+    const r = resolveShowdown(animalA, animalB, secrets.axisA, secrets.axisB);
+    tie = r.tie; winnerTeam = r.winnerTeam;
+  }
+  if (tie){
+    logLine(g, `[R${g.roundNum}] 決着(ショーダウン・引き分け)：味方=${animalA} ／ 敵=${animalB} → 同一動物。ポット${g.pot}は持ち越し`);
+    g.roundHistory.push({round:g.roundNum, animalA, animalB, method:'showdown', tie:true, winnerTeam:null});
+  } else {
+    if (resolved.method!=='fold'){
+      const winnerAnimal = winnerTeam==='A' ? animalA : animalB;
+      const loserAnimal = winnerTeam==='A' ? animalB : animalA;
+      g.publicConstraints.push({round:g.roundNum, winner:winnerAnimal, loser:loserAnimal});
+    }
+    g.score[winnerTeam] += g.pot;
+    logLine(g, `[R${g.roundNum}] 決着(${resolved.method==='fold'?'フォールド':'ショーダウン'})：味方=${animalA} ／ 敵=${animalB} → ${winnerTeam==='A'?'味方':'敵'}の勝ち（ポット${g.pot}を得点化）`);
+    g.roundHistory.push({round:g.roundNum, animalA, animalB, method:resolved.method, tie:false, winnerTeam});
+    g.pot = 0;
+  }
+  g.phase = 'resolved';
+  g.betting = null;
+}
+
+async function hostFinalizeMatch(){
+  const g = JSON.parse(JSON.stringify(ST.game));
+  let result;
+  const humanOut = g.chips.A<=0, npcOut = g.chips.B<=0;
+  if (humanOut || npcOut){
+    if (humanOut && npcOut) result = g.score.A===g.score.B ? 'draw' : (g.score.A>g.score.B?'A':'B');
+    else result = humanOut ? 'B' : 'A';
+    logLine(g, `命の枯渇により終了。判定：${result==='draw'?'引き分け':(result==='A'?'味方の勝ち':'敵の勝ち')}`);
+  } else {
+    result = g.score.A===g.score.B ? 'draw' : (g.score.A>g.score.B?'A':'B');
+    logLine(g, `8ラウンド終了。最終得点 味方=${g.score.A} 敵=${g.score.B} → ${result==='draw'?'引き分け':(result==='A'?'味方の勝ち':'敵の勝ち')}`);
+  }
+  g.matchResult = result;
+  await roomRef('game').set(g);
+  const secrets = (await roomRef('secrets').get()).val();
+  await roomRef('reveal').set({ axisA: secrets.axisA, axisB: secrets.axisB, hints: g.publicHints, createdAt: nowMs() });
+  await roomRef('meta').update({ phase:'ended' });
+}
+
+async function hostSettleDrain(){
+  const g = JSON.parse(JSON.stringify(ST.game));
+  if (!g || !g.drain) return;
+  let rateMs = null, teamsAffected = [];
+  if (g.phase === 'hint'){
+    if (ST.meta.hintDrainToggle === 'equal'){ rateMs = HINT_AMBIENT_REFERENCE_MS * 4; teamsAffected = ['A','B']; }
+  } else if (g.phase === 'select_cards' || g.phase === 'betting'){
+    const speed = DRAIN_INTERVALS[ST.meta.drainSpeed];
+    if (speed){
+      rateMs = speed;
+      const actingTeam = g.phase==='betting' ? g.betting.toActTeam : null;
+      teamsAffected = actingTeam ? [actingTeam] : ['A','B']; // select_cards: 両ダイバーとも入力待ちなので両チーム
+    }
+  }
+  if (!rateMs || !teamsAffected.length) return;
+  const elapsed = nowMs() - g.drain.phaseEnteredAt;
+  const ticksElapsed = Math.floor(elapsed / rateMs);
+  if (ticksElapsed <= g.drain.ticksApplied) return;
+  const delta = ticksElapsed - g.drain.ticksApplied;
+  g.drain.ticksApplied = ticksElapsed;
+  teamsAffected.forEach(team=>{
+    g.chips[team] = Math.max(0, g.chips[team] - delta);
+    g.vanished = (g.vanished||0) + Math.min(delta, INITIAL_LIFE);
+  });
+  logLine(g, `(ドレイン) ${teamsAffected.map(t=>t==='A'?'味方':'敵').join('・')}の命が${delta}減少`);
+  if (g.chips.A<=0 || g.chips.B<=0){
+    g.phase = 'resolved';
+    g.betting = null;
+  }
+  await roomRef('game').set(g);
+}
+
+/* ---------------- NPC駆動（npc2モード。ホストのブラウザが代行） ---------------- */
+async function hostDriveNpcIfNeeded(){
+  if (ST.meta.mode !== 'npc2') return;
+  const g = ST.game;
+  if (!g) return;
+  const secrets = (await roomRef('secrets').get()).val();
+  if (!secrets) return;
+  const npcObsSeat = ST.seats[2], npcDivSeat = ST.seats[3];
+
+  if (g.phase === 'hint' && g.hint.active && !g.hint.lockedB){
+    const usedTexts = new Set(g.publicHints.map(h=>h.text));
+    const text = npcPickHint(secrets.axisB, g.hint.tier, usedTexts);
+    await roomRef(`private/${npcObsSeat.uid}`).update({ hintText:text, hintLocked:true });
+  } else if (g.phase === 'select_cards' && g.cardsRevealed.B===null){
+    const remaining = g.hand.B.filter(a=>!g.usedAnimals.B.includes(a));
+    const oppRemaining = g.hand.A.filter(a=>!g.usedAnimals.A.includes(a));
+    const animal = npcChooseAnimal(remaining, oppRemaining, secrets.axisB);
+    await roomRef(`private/${npcDivSeat.uid}`).update({ pendingCard: animal });
+  } else if (g.phase === 'betting' && g.betting && g.betting.toActTeam === 'B'){
+    const opts = computeBetOptions(g.betting, g.chips);
+    const animal = g.cardsRevealed.B;
+    const oppRemaining = g.hand.A.filter(a=>!g.usedAnimals.A.includes(a));
+    const conf = npcConfidence(animal, oppRemaining, secrets.axisB);
+    const decision = npcDecideAction(conf, opts);
+    const applied = applyBetAction({betting:g.betting, chips:g.chips, pot:g.pot}, decision.action, decision.amount);
+    const g2 = JSON.parse(JSON.stringify(g));
+    g2.betting = applied.betting; g2.chips = applied.chips; g2.pot = applied.pot;
+    logLine(g2, `[R${g2.roundNum}] 敵: ${describeBetAction(decision)}`);
+    if (applied.resolved) await finishRoundInGame(g2, applied.resolved);
+    await roomRef('game').set(g2);
+  }
+}
+
+/* ---------------- プレイヤー入力アクション ---------------- */
+async function submitHintDraft(text){
+  await roomRef(`private/${user.uid}`).update({ hintText:text });
+}
+async function lockHint(){
+  const priv = (await roomRef(`private/${user.uid}`).get()).val() || {};
+  const violation = hintFilterViolation(priv.hintText || '');
+  if (violation) throw new Error('ヒントがフィルタに抵触しています: '+violation);
+  await roomRef(`private/${user.uid}`).update({ hintLocked:true });
+}
+async function submitCard(animal){
+  await roomRef(`private/${user.uid}`).update({ pendingCard: animal });
+}
+async function submitBettingAction(action, amount){
+  const g = ST.game;
+  await roomRef(`private/${user.uid}`).update({ pendingBet: { action, amount: amount||0, round: g.roundNum, betSeq: g.betting.history.length, id: randomId() } });
+}
+
+/* ==================== UI ==================== */
+function showError(msg){
+  const el2 = document.getElementById('errorBanner');
+  el2.textContent = 'エラー: '+msg;
+  el2.hidden = false;
+  clearTimeout(showError._t);
+  showError._t = setTimeout(()=>{ el2.hidden = true; }, 6000);
+}
+function showToast(msg){
+  const el2 = document.getElementById('toast');
+  el2.textContent = msg;
+  el2.hidden = false;
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=>{ el2.hidden = true; }, 2000);
+}
+function safe(fn){ return function(...args){ try{ const r = fn(...args); if (r && r.catch) r.catch(e=>showError(e && e.message?e.message:String(e))); } catch(e){ showError(e && e.message?e.message:String(e)); } }; }
+
+function el(tag, attrs, children){
+  const e = document.createElement(tag);
+  if (attrs) Object.keys(attrs).forEach(k=>{
+    if (k==='class') e.className = attrs[k];
+    else if (k==='value' && tag==='textarea') e.value = attrs[k];
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), attrs[k]);
+    else if (attrs[k] === false || attrs[k] === undefined || attrs[k] === null) { /* 真偽値属性（disabled等）はfalsy値なら付与しない */ }
+    else e.setAttribute(k, attrs[k]);
+  });
+  (children||[]).forEach(c=>{ if (c!=null) e.appendChild(typeof c==='string' ? document.createTextNode(c) : c); });
+  return e;
+}
+
+let abortArmed = false, abortTimer = null;
+
+function render(){
+  document.getElementById('verBadge').textContent = '伝達核4人版オンライン '+VER;
+  const vb = document.getElementById('versionBanner');
+  if (ST.meta && ST.meta.version && ST.meta.version !== VER){
+    vb.textContent = `この部屋はv${ST.meta.version}、あなたの画面はv${VER}です。ページを再読み込みしてください。`;
+    vb.hidden = false;
+  } else vb.hidden = true;
+
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  if (!ST.room){ app.appendChild(renderHome()); return; }
+  if (!ST.meta){ app.appendChild(el('div',{class:'panel'},['部屋を同期中…'])); return; }
+  if (ST.meta.phase === 'ended'){ app.appendChild(renderEndScreen()); return; }
+  if (ST.meta.phase === 'lobby'){ app.appendChild(renderLobby()); return; }
+  if (!ST.game){ app.appendChild(el('div',{class:'panel'},['対戦データを準備中…'])); return; }
+  app.appendChild(renderGameScreen());
+}
+
+function renderHome(){
+  const wrap = el('div', {});
+  wrap.appendChild(el('h1', {}, ['伝達核 4人版オンライン ― v0']));
+  wrap.appendChild(el('div', {class:'sub'}, ['2チーム×(観測員+潜水士)。観測員は自陣営の軸のみを知り、テキストチャットでヒントを送る。']));
+
+  const nameInput = el('input', {type:'text', id:'nameInput', value:'プレイヤー', style:'width:160px;'});
+
+  const createPanel = el('div', {class:'panel'});
+  createPanel.appendChild(el('h2', {}, ['部屋を作る']));
+  const modeSelect = el('select', {id:'modeSelect'});
+  modeSelect.appendChild(el('option', {value:'human4'}, ['人間4人']));
+  modeSelect.appendChild(el('option', {value:'npc2'}, ['人間2人＋NPCチーム']));
+  const drainRow = el('div', {class:'row'});
+  [['off','オフ'],['slow','遅(30s)'],['standard','標準(15s)'],['fast','速(7s)']].forEach(([v,l],i)=>{
+    const inp = el('input', {type:'radio', name:'drainSpeed', value:v, id:'ds_'+v});
+    if (i===0) inp.setAttribute('checked','checked');
+    drainRow.appendChild(el('label', {class:'radio'}, [inp, l]));
+  });
+  const hintDrainRow = el('div', {class:'row'});
+  [['equal','等額(既定)'],['off','オフ']].forEach(([v,l],i)=>{
+    const inp = el('input', {type:'radio', name:'hintDrain', value:v, id:'hd_'+v});
+    if (i===0) inp.setAttribute('checked','checked');
+    hintDrainRow.appendChild(el('label', {class:'radio'}, [inp, l]));
+  });
+  createPanel.appendChild(el('div', {class:'row'}, ['お名前:', nameInput]));
+  createPanel.appendChild(el('div', {class:'row'}, ['モード:', modeSelect]));
+  createPanel.appendChild(el('div', {class:'row'}, ['決定フェーズのドレイン:']));
+  createPanel.appendChild(drainRow);
+  createPanel.appendChild(el('div', {class:'row'}, ['ヒントフェーズのアンビエントドレイン:']));
+  createPanel.appendChild(hintDrainRow);
+  createPanel.appendChild(el('button', {class:'btn primary', style:'margin-top:10px;', onclick:safe(async ()=>{
+    const name = document.getElementById('nameInput').value.trim() || 'プレイヤー';
+    const mode = document.getElementById('modeSelect').value;
+    const ds = document.querySelector('input[name=drainSpeed]:checked').value;
+    const hd = document.querySelector('input[name=hintDrain]:checked').value;
+    await createRoom(mode, ds, hd, name);
+  })}, ['部屋を作成']));
+  wrap.appendChild(createPanel);
+
+  const joinPanel = el('div', {class:'panel'});
+  joinPanel.appendChild(el('h2', {}, ['部屋に参加する']));
+  const codeInput = el('input', {type:'text', id:'codeInput', style:'width:120px;', placeholder:'ABCDEF'});
+  joinPanel.appendChild(el('div', {class:'row'}, ['部屋コード:', codeInput, el('button', {class:'btn primary', onclick:safe(async ()=>{
+    const name = document.getElementById('nameInput').value.trim() || 'プレイヤー';
+    await joinRoom(document.getElementById('codeInput').value, null, name);
+  })}, ['参加'])]));
+  wrap.appendChild(joinPanel);
+
+  return wrap;
+}
+
+function seatLabel(i){
+  const names = {0:'チームA 観測員(味方)',1:'チームA 潜水士(味方)',2:'チームB 観測員(敵)',3:'チームB 潜水士(敵)'};
+  return names[i];
+}
+
+function renderLobby(){
+  const wrap = el('div', {});
+  wrap.appendChild(el('h1', {}, ['ロビー：部屋 '+ST.room]));
+  const panel = el('div', {class:'panel'});
+  panel.appendChild(el('h2', {}, ['座席']));
+  for (let i=0;i<4;i++){
+    const s = ST.seats[i];
+    panel.appendChild(el('div', {class:'row'}, [`${seatLabel(i)}: ${s ? (s.name+(s.isNpc?'（NPC）':'')) : '(空席)'}`]));
+  }
+  const ready = allSeatsFilled();
+  panel.appendChild(el('p', {class:'sub'}, [ready ? '全席着席済み。' : '全席が埋まるまで開始できません。']));
+  if (isHost()){
+    panel.appendChild(el('button', {class:'btn primary', disabled: !ready, onclick:safe(async ()=>{ await hostStartSetup(); })}, ['対戦開始（配布）']));
+  } else {
+    panel.appendChild(el('p', {class:'sub'}, ['ホストの開始を待っています。']));
+  }
+  panel.appendChild(el('button', {class:'btn', style:'margin-top:10px;', onclick:safe(()=>{ leaveRoom(); })}, ['退室']));
+  wrap.appendChild(panel);
+  return wrap;
+}
+
+function myRole(){
+  return ROLE_OF_SEAT[ST.seat];
+}
+function myTeam(){
+  return TEAM_OF_SEAT[ST.seat];
+}
+
+function renderGameScreen(){
+  const wrap = el('div', {});
+  const g = ST.game;
+  const team = myTeam(), role = myRole();
+  const opp = otherTeam(team);
+
+  const stat = el('div', {class:'statbar'});
+  stat.appendChild(el('div', {class:'stat'}, [`ラウンド ${g.roundNum}/${ROUNDS_TOTAL}`]));
+  stat.appendChild(el('div', {class:'stat'}, ['ポット(燃焼中): ', el('b',{},[String(g.pot)])]));
+  wrap.appendChild(stat);
+
+  const lsPanel = el('div', {class:'panel'});
+  lsPanel.appendChild(el('h2', {}, ['命／得点（別勘定）']));
+  const lsRow = el('div', {class:'row'});
+  const mineBox = el('div', {});
+  mineBox.appendChild(el('div', {}, [`味方 命=${g.chips[team]} ／ 得点=${g.score[team]}`]));
+  mineBox.appendChild(gaugeEl(g.chips[team], INITIAL_LIFE));
+  const oppBox = el('div', {});
+  oppBox.appendChild(el('div', {}, [`敵 命=${g.chips[opp]} ／ 得点=${g.score[opp]}`]));
+  oppBox.appendChild(gaugeEl(g.chips[opp], INITIAL_LIFE));
+  lsRow.appendChild(mineBox); lsRow.appendChild(oppBox);
+  lsPanel.appendChild(lsRow);
+  wrap.appendChild(lsPanel);
+
+  const infoPanel = el('div', {class:'panel'});
+  if (role==='observer' && ST.myPrivate && ST.myPrivate.axis){
+    infoPanel.appendChild(el('h2', {}, ['自陣営の軸（あなただけが知っている）']));
+    infoPanel.appendChild(el('div', {class:'animalrow'}, [el('div', {class:'animal static'}, [ST.myPrivate.axis])]));
+  }
+  if (role==='diver' && ST.myPrivate && ST.myPrivate.anchors){
+    infoPanel.appendChild(el('h2', {}, ['消去情報（この軸ではない、と分かっている軸）']));
+    const row = el('div', {class:'animalrow'});
+    ST.myPrivate.anchors.forEach(a=> row.appendChild(el('div', {class:'animal static'}, [a])));
+    infoPanel.appendChild(row);
+  }
+  const oppRemainingRow = el('div', {class:'animalrow'});
+  const oppRemaining = ANIMALS.filter(a=>!g.usedAnimals[opp].includes(a));
+  oppRemaining.forEach(a=> oppRemainingRow.appendChild(el('div', {class:'animal mini static'}, [a])));
+  infoPanel.appendChild(el('h2', {}, ['敵の残動物（公開情報）']));
+  infoPanel.appendChild(oppRemainingRow);
+  wrap.appendChild(infoPanel);
+
+  const refPanel = el('div', {class:'panel'});
+  refPanel.appendChild(el('h2', {}, ['全8軸 順位表（公開リファレンス）']));
+  refPanel.appendChild(renderAxisReferenceTable());
+  wrap.appendChild(refPanel);
+
+  const hintPanel = el('div', {class:'panel'});
+  hintPanel.appendChild(el('h2', {}, ['ヒントログ（R1〜R4のみ）']));
+  if (!g.publicHints.length) hintPanel.appendChild(el('p', {class:'sub'}, ['まだヒントはありません。']));
+  g.publicHints.forEach(ph=>{
+    const line = el('div', {class:'hintline'});
+    const mine = ph.side === team;
+    line.appendChild(el('span', {class:'tag '+(mine?'mine':'theirs')}, [mine?'味方':'敵']));
+    line.appendChild(document.createTextNode(`R${ph.round}: ${ph.text}`));
+    hintPanel.appendChild(line);
+  });
+  wrap.appendChild(hintPanel);
+
+  const constraintPanel = el('div', {class:'panel'});
+  constraintPanel.appendChild(el('h2', {}, ['公開制約ログ']));
+  if (!g.publicConstraints.length) constraintPanel.appendChild(el('p', {class:'sub'}, ['まだ制約はありません。']));
+  g.publicConstraints.forEach(c=> constraintPanel.appendChild(el('div', {class:'hintline'}, [`R${c.round}: ${c.winner} > ${c.loser}`])));
+  wrap.appendChild(constraintPanel);
+
+  const histPanel = el('div', {class:'panel'});
+  histPanel.appendChild(el('h2', {}, ['ラウンド履歴']));
+  if (g.roundHistory.length){
+    const tbl = el('table');
+    tbl.appendChild(el('tr', {}, [el('th',{},['R']), el('th',{},['味方']), el('th',{},['敵']), el('th',{},['決着']), el('th',{},['結果'])]));
+    g.roundHistory.forEach(h=>{
+      const resultText = h.tie ? '引き分け（持ち越し）' : `${h.winnerTeam===team?'味方':'敵'}の勝ち`;
+      tbl.appendChild(el('tr', {}, [el('td',{},[String(h.round)]), el('td',{},[h.animalA===undefined?'?':(team==='A'?h.animalA:h.animalB)]), el('td',{},[team==='A'?h.animalB:h.animalA]), el('td',{},[h.method==='fold'?'フォールド':'ショーダウン']), el('td',{},[resultText])]));
+    });
+    histPanel.appendChild(tbl);
+  } else histPanel.appendChild(el('p', {class:'sub'}, ['まだ決着したラウンドはありません。']));
+  wrap.appendChild(histPanel);
+
+  const roundPanel = el('div', {class:'panel'});
+  if (g.phase === 'hint'){
+    roundPanel.appendChild(el('h2', {}, [`ヒントフェーズ（推奨等級：${g.hint.tier}）`]));
+    if (role==='observer'){
+      const already = ST.myPrivate && ST.myPrivate.hintLocked;
+      const draft = (ST.myPrivate && ST.myPrivate.hintText) || '';
+      const ta = el('textarea', {rows:'2', value:draft, disabled: !!already, oninput:safe(e=>{ submitHintDraft(e.target.value); render(); })});
+      roundPanel.appendChild(ta);
+      const violation = hintFilterViolation(ta.value);
+      roundPanel.appendChild(el('div', {class:'charcount'+(violation?' over':'')}, [`${ta.value.length}/${HINT_TEXT_MAX_LEN}文字${violation?' ― '+violation:''}`]));
+      roundPanel.appendChild(el('button', {class:'btn primary', disabled: !!(already || violation), onclick:safe(async ()=>{ await lockHint(); })}, [already?'送信ロック済み':'送信ロック']));
+      if (already) roundPanel.appendChild(el('p', {class:'sub'}, ['相手チームの送信、または60秒経過をお待ちください。']));
+    } else {
+      roundPanel.appendChild(el('p', {class:'sub'}, ['潜水士は入力できません。観測員の送信をお待ちください。']));
+    }
+  } else if (g.phase === 'select_cards'){
+    roundPanel.appendChild(el('h2', {}, ['動物を1体選んで伏せて出してください']));
+    if (role==='diver'){
+      const already = ST.myPrivate && ST.myPrivate.pendingCard;
+      const remaining = ANIMALS.filter(a=>!g.usedAnimals[team].includes(a));
+      const row = el('div', {class:'animalrow'});
+      remaining.forEach(a=> row.appendChild(el('div', {class:'animal'+(already?' disabled':''), onclick: already?null:safe(async ()=>{ await submitCard(a); })}, [a])));
+      roundPanel.appendChild(row);
+      if (already) roundPanel.appendChild(el('p', {class:'sub'}, ['提出済み。相手の提出をお待ちください。']));
+    } else {
+      roundPanel.appendChild(el('p', {class:'sub'}, ['潜水士がカードを選んでいます…']));
+    }
+  } else if (g.phase === 'betting'){
+    roundPanel.appendChild(el('h2', {}, ['ベット応酬']));
+    roundPanel.appendChild(el('p', {class:'sub'}, [`手番: ${g.betting.toActTeam===team?'味方（あなたのチーム）':'敵'}`]));
+    roundPanel.appendChild(renderBetLog(g.betting, team));
+    if (role==='diver' && g.betting.toActTeam===team) roundPanel.appendChild(renderActionButtons(g));
+  } else if (g.phase === 'resolved'){
+    const last = g.roundHistory[g.roundHistory.length-1];
+    if (last){
+      const resultText = last.tie ? '同一動物・引き分け（ポット持ち越し）' : `${last.winnerTeam===team?'味方':'敵'}の勝ち（${last.method==='fold'?'フォールド':'ショーダウン'}）`;
+      roundPanel.appendChild(el('h2', {}, ['決着']));
+      roundPanel.appendChild(el('div', {class:'result-big'}, [`あなた側=${team==='A'?last.animalA:last.animalB} ／ 相手側=${team==='A'?last.animalB:last.animalA}　→　${resultText}`]));
+    }
+    roundPanel.appendChild(el('p', {class:'sub'}, ['まもなく次のラウンドへ進みます…']));
+  }
+  wrap.appendChild(roundPanel);
+
+  const toolsPanel = el('div', {class:'panel'});
+  toolsPanel.appendChild(el('h2', {}, ['行動ログ']));
+  toolsPanel.appendChild(el('div', {id:'log'}, [(g.log||[]).join('\n')]));
+  toolsPanel.appendChild(el('button', {class:'btn', style:'margin-top:10px;', onclick:safe(()=>{ leaveRoom(); })}, ['退室']));
+  wrap.appendChild(toolsPanel);
+
+  return wrap;
+}
+
+function gaugeEl(current, max){
+  const pct = Math.max(0, Math.min(100, (current/max)*100));
+  const cls = pct<=20 ? 'bad' : (pct<=50 ? 'warn' : '');
+  return el('div', {class:'gauge'}, [el('div', {class:'gauge-fill '+cls, style:`width:${pct}%;`})]);
+}
+function renderAxisReferenceTable(){
+  const tbl = el('table');
+  const head = el('tr', {}, [el('th',{},['軸'])]);
+  for (let v=8; v>=1; v--) head.appendChild(el('th', {}, [String(v)]));
+  tbl.appendChild(head);
+  AXES.forEach(axis=>{
+    const row = el('tr', {}, [el('th', {}, [axis])]);
+    AXIS_ORDER[axis].forEach(animal=> row.appendChild(el('td', {}, [animal])));
+    tbl.appendChild(row);
+  });
+  return tbl;
+}
+function renderBetLog(betting, myTeamKey){
+  const box = el('div', {class:'panel', style:'background:#161c22;'});
+  box.appendChild(el('h2', {}, ['このラウンドのベット経過']));
+  if (!betting.history.length){ box.appendChild(el('p', {class:'sub'}, ['まだアクションはありません。'])); return box; }
+  const lines = betting.history.map(h=>{
+    const who = h.team===myTeamKey ? '味方' : '敵';
+    if (h.action==='check') return `${who}: チェック`;
+    if (h.action==='bet') return `${who}: ベット ${h.amount}`;
+    if (h.action==='call') return `${who}: コール ${h.amount}${h.allIn?'（オールイン）':''}`;
+    if (h.action==='raise') return `${who}: レイズ +${h.amount}（支払${h.totalPaid}）`;
+    if (h.action==='fold') return `${who}: フォールド`;
+    return JSON.stringify(h);
+  });
+  box.appendChild(el('div', {style:'font-size:0.85rem; line-height:1.6;'}, [lines.join(' → ')]));
+  return box;
+}
+function renderActionButtons(g){
+  const opts = computeBetOptions(g.betting, g.chips);
+  const box = el('div', {class:'row', style:'margin-top:10px;'});
+  if (opts.kind==='open'){
+    box.appendChild(el('button', {class:'btn', onclick:safe(async ()=>{ await submitBettingAction('check'); })}, ['チェック']));
+    extractValues(opts.options,'bet').forEach(v=>{
+      box.appendChild(el('button', {class:'btn primary', onclick:safe(async ()=>{ await submitBettingAction('bet', v); })}, ['ベット '+v]));
+    });
+  } else {
+    box.appendChild(el('button', {class:'btn danger', onclick:safe(async ()=>{ await submitBettingAction('fold'); })}, ['フォールド']));
+    const myChips = g.chips[myTeam()];
+    const callLabel = opts.toCall > myChips ? `コール（オールイン ${myChips}）` : `コール ${opts.toCall}`;
+    box.appendChild(el('button', {class:'btn primary', onclick:safe(async ()=>{ await submitBettingAction('call'); })}, [callLabel]));
+    extractValues(opts.options,'raise').forEach(v=>{
+      box.appendChild(el('button', {class:'btn', onclick:safe(async ()=>{ await submitBettingAction('raise', v); })}, ['レイズ +'+v]));
+    });
+  }
+  return box;
+}
+
+function renderEndScreen(){
+  const wrap = el('div', {});
+  wrap.appendChild(el('h1', {}, ['マッチ終了']));
+  const g = ST.game;
+  const team = myTeam();
+  const result = g.matchResult;
+  const msg = result==='draw' ? '引き分け' : (result===team ? 'あなたのチームの勝ち！' : '相手チームの勝ち');
+  const panel = el('div', {class:'panel'});
+  panel.appendChild(el('div', {class:'result-big'}, [msg]));
+  panel.appendChild(el('p', {}, [`最終得点：味方=${g.score[team]} ／ 敵=${g.score[otherTeam(team)]}`]));
+  panel.appendChild(el('button', {class:'btn primary', onclick:safe(()=>{ leaveRoom(); })}, ['退室']));
+  wrap.appendChild(panel);
+
+  db.ref(`${ROOT}/${ST.room}/reveal`).get().then(snap=>{
+    const rv = snap.val();
+    if (!rv) return;
+    const revealPanel = el('div', {class:'panel'});
+    revealPanel.appendChild(el('h2', {}, ['真軸の公開']));
+    revealPanel.appendChild(el('p', {}, [`チームA(味方視点で${team==='A'?'あなた':'相手'})の軸：${rv.axisA}／チームB(味方視点で${team==='B'?'あなた':'相手'})の軸：${rv.axisB}`]));
+    revealPanel.appendChild(el('h2', {}, ['全ヒント再掲']));
+    (rv.hints||[]).forEach(h=> revealPanel.appendChild(el('div', {class:'hintline'}, [`R${h.round} [${h.side}]: ${h.text}`])));
+    document.getElementById('app').appendChild(revealPanel);
+  }).catch(()=>{});
+
+  return wrap;
+}
+
+render();
+bootstrap();
+</script>
+</body>
+</html>
