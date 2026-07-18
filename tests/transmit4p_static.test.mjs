@@ -57,26 +57,51 @@ test("all 32 frozen hint texts from the definition file are present verbatim", (
   }
 });
 
-test("cross-check: frozen 32 hint texts against the v0.1-expanded human hint filter (informational, does not block — NPC hints are exempt from the filter per spec)", () => {
+function extractHintFilterFns() {
+  const digitSrc = SCRIPT.match(/const FILTER_DIGIT_REGEX = (\/[\s\S]*?\/);/)[1];
+  const wordsSrc = SCRIPT.match(/const FILTER_RANK_WORDS = (\[[\s\S]*?\]);/)[1];
+  const whitelistSrc = SCRIPT.match(/const FILTER_KANJI_WHITELIST = (\[[\s\S]*?\]);/)[1];
+  const FILTER_DIGIT_REGEX = new Function(`return ${digitSrc};`)();
+  const FILTER_RANK_WORDS = new Function(`return ${wordsSrc};`)();
+  const FILTER_KANJI_WHITELIST = new Function(`return ${whitelistSrc};`)();
+  function hintFilterViolation(text) {
+    if (typeof text !== 'string') return 'invalid';
+    if (text.length === 0) return 'empty';
+    if (text.length > 40) return 'too_long';
+    let stripped = text;
+    for (const w of FILTER_KANJI_WHITELIST) stripped = stripped.replaceAll(w, '');
+    if (FILTER_DIGIT_REGEX.test(stripped)) return 'digit';
+    for (const w of FILTER_RANK_WORDS) if (stripped.includes(w)) return 'rank_word:' + w;
+    return null;
+  }
+  return { hintFilterViolation };
+}
+
+test("cross-check: frozen 32 hint texts against the whitelist-adjusted human hint filter must produce zero violations (hard assertion, 4p-v0.2.1)", () => {
   const defMd = fs.readFileSync("proto/核定義_伝達核v1.0_動物軸版_凍結_2026-07-17.md", "utf8");
   const rows = [...defMd.matchAll(/^\| (体重|速さ|寿命|危険度|かわいさ|人気|五十音|群れ) \| (遠|中|直) \| ([^|]+) \|/gm)];
   assert.equal(rows.length, 32, "expected 32 hint rows in the frozen definition");
-  const digitSrc = SCRIPT.match(/const FILTER_DIGIT_REGEX = (\/[\s\S]*?\/);/)[1];
-  const wordsSrc = SCRIPT.match(/const FILTER_RANK_WORDS = (\[[\s\S]*?\]);/)[1];
-  const FILTER_DIGIT_REGEX = new Function(`return ${digitSrc};`)();
-  const FILTER_RANK_WORDS = new Function(`return ${wordsSrc};`)();
+  const { hintFilterViolation } = extractHintFilterFns();
   const violations = [];
   for (const [, axis, tier, textRaw] of rows) {
     const text = textRaw.trim();
-    if (FILTER_DIGIT_REGEX.test(text)) { violations.push({ axis, tier, text, reason: 'digit' }); continue; }
-    const hitWord = FILTER_RANK_WORDS.find(w => text.includes(w));
-    if (hitWord) violations.push({ axis, tier, text, reason: `rank_word:${hitWord}` });
+    const v = hintFilterViolation(text);
+    if (v) violations.push({ axis, tier, text, reason: v });
   }
-  if (violations.length) {
-    console.log(`[informational] ${violations.length} frozen hint text(s) would trip the human-facing filter (NPC-exempt, listed in the report):`);
-    for (const v of violations) console.log(`  axis=${v.axis} tier=${v.tier} text="${v.text}" reason=${v.reason}`);
-  }
-  assert.ok(true);
+  assert.deepEqual(violations, [], `expected zero filter violations among frozen hint texts, got: ${JSON.stringify(violations)}`);
+});
+
+test("hint filter whitelist-subtraction unit cases (4p-v0.2.1)", () => {
+  const { hintFilterViolation } = extractHintFilterFns();
+  assert.equal(hintFilterViolation("一緒にいたい順"), null, "whitelisted word should pass");
+  assert.equal(hintFilterViolation("五十音で後ろ"), null, "whitelisted word should pass");
+  assert.equal(hintFilterViolation("一匹でいそう"), null, "whitelisted word should pass");
+  // "一番" contains the kanji digit "一" (not whitelisted), so the pre-existing digit-check-first
+  // ordering classifies this as 'digit' rather than 'rank_word:一番' — still blocked either way.
+  assert.ok(hintFilterViolation("一番大きい"), "rank word must still block (reason may be 'digit' due to pre-existing check order)");
+  assert.equal(hintFilterViolation("三"), 'digit', "bare kanji digit must still block");
+  assert.equal(hintFilterViolation("一一緒"), 'digit', "residual digit after whitelist subtraction must still block (no bypass)");
+  assert.equal(hintFilterViolation("壱の獣"), 'digit', "kanji numeral variant must still block");
 });
 
 test("all 8 axis rank tables match the frozen definition exactly", () => {
