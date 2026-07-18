@@ -221,3 +221,36 @@ test("rule modal describes anchors as double-elimination (neither team's axis) a
 test("rule modal's tie description covers both same-animal and same-rank-different-axis ties (4p-v0.3.1 §2-1)", () => {
   assert.match(HTML, /異なる動物でも両陣営の軸上の順位が同じ数値になった場合は、引き分け/);
 });
+
+test("rule modal's glossary explains drain, and the betting/showdown vocabulary for poker-unfamiliar players (4p-v0.3.2 §1)", () => {
+  assert.match(HTML, /ドレイン：時間経過による酸素の消費/);
+  assert.match(HTML, /アンティ：各ラウンド開始時に両チームから自動で徴収される参加料/);
+  assert.match(HTML, /ポット：そのラウンドに賭けられた酸素の合計/);
+  assert.match(HTML, /チェック：追加で賭けずに相手に手番を渡すこと。/);
+  assert.match(HTML, /ベット：酸素を賭けること/);
+  assert.match(HTML, /コール：相手のベットと同額を出して勝負を受けること。/);
+  assert.match(HTML, /レイズ：相手のベットにさらに上乗せすること/);
+  assert.match(HTML, /ショーダウン：両チームのカードを突き合わせて勝敗を決める瞬間。/);
+});
+
+test("rule modal overview explicitly states each team holds a separate axis (4p-v0.3.2 §1-c-1)", () => {
+  assert.match(HTML, /各チームは別々の軸を持ちます（同じ軸を共有しているわけではありません）/);
+});
+
+test("rule modal's R5 sentence applies to everyone, not scoped inside the NPC parenthetical (4p-v0.3.2 §1-c-2)", () => {
+  const observerSrc = SCRIPT.match(/function ruleObserverTab\(\)\{[\s\S]*?\n\}/)[0];
+  assert.doesNotMatch(observerSrc, /R5以降はヒントなしで直接カード選択に進みます）。/, "R5 sentence must not be inside the NPC-only parenthetical");
+  assert.match(observerSrc, /'R5以降はヒントなしで直接カード選択に進みます。'/);
+});
+
+test("anchor dimming in the axis reference table is diver-only and sourced only from the viewer's own private data (4p-v0.3.2 §2)", () => {
+  assert.match(HTML, /\.anchor-dim\{/);
+  assert.match(HTML, /class:'anchor-badge'/);
+  const fnSrc = SCRIPT.match(/function renderAxisReferenceTable\(anchorAxes\)\{[\s\S]*?\n\}/)[0];
+  assert.match(fnSrc, /anchors\.includes\(axis\)/);
+  const callSiteSrc = SCRIPT.match(/const myAnchors = [\s\S]*?;/)[0];
+  assert.match(callSiteSrc, /role==='diver'/);
+  assert.match(callSiteSrc, /ST\.myPrivate\.anchors/);
+  // must not read any other seat's private data, or an opponent-team field, when building the anchor list
+  assert.doesNotMatch(callSiteSrc, /allPrivate|seats\[/);
+});
