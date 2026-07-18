@@ -160,3 +160,32 @@ test("no confirm/alert/prompt usage", () => {
 test("spectator/observation mode is not implemented (explicitly out of scope per instruction)", () => {
   assert.doesNotMatch(HTML, /spectator/i);
 });
+
+test("rule explanation modal exists and is placed outside #app (4p-v0.3.0 §1)", () => {
+  assert.match(HTML, /<div id="ruleModal" class="modal-overlay" hidden>/);
+  assert.match(HTML, /<button id="ruleOpenBtn"/);
+  assert.match(HTML, /function openRuleModal\(\)/);
+  assert.match(HTML, /function ruleObserverTab\(\)/);
+  assert.match(HTML, /function ruleDiverTab\(\)/);
+  assert.match(HTML, /function ruleGlossaryTab\(\)/);
+  // #ruleModal must be a sibling of #app in <body>, not nested inside it, so that main render()'s
+  // full rebuild of #app never touches (and never resets the scroll position of) an open modal.
+  const appIdx = HTML.indexOf('<div id="app"></div>');
+  const modalIdx = HTML.indexOf('<div id="ruleModal"');
+  assert.ok(appIdx > -1 && modalIdx > -1 && modalIdx > appIdx, "#ruleModal must appear as a sibling after #app, not nested inside it");
+});
+
+test("mute toggle exists, defaults visible, and gates all synthesized sound through a single muted flag (4p-v0.3.0 §3)", () => {
+  assert.match(HTML, /<button id="muteBtn"/);
+  assert.match(HTML, /function setMuted\(v\)/);
+  assert.match(HTML, /if \(muted\) return;/);
+  assert.match(HTML, /localStorage\.getItem\('transmit4p_mute'\)/);
+});
+
+test("web audio: only synthesized tones, no external audio file or CDN references (4p-v0.3.0 §3)", () => {
+  assert.match(HTML, /AudioContext/);
+  assert.doesNotMatch(HTML, /\.mp3|\.wav|\.ogg/i);
+  assert.match(HTML, /function playTurnNotify\(\)/);
+  assert.match(HTML, /function playHintReveal\(\)/);
+  assert.match(HTML, /function playShowdownResult\(won\)/);
+});
