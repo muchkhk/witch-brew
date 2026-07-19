@@ -47,7 +47,7 @@ console.log('全画面からルールに到達できること（§2-5）:');
   ok(showRulesCallCount >= 2, `UI.showRules() の呼び出しがホットシート/オンライン双方のヘッダーに存在すること (実:${showRulesCallCount})`);
   ok(/function frame\(body\)[\s\S]{0,300}rulesbtn/.test(uiSrc), 'ホットシート/ソロのヘッダー(frame())に❓ボタンがあること');
   const onlineHeaderIdx = uiSrc.indexOf('  render() {\n    const app = document.getElementById');
-  ok(onlineHeaderIdx >= 0 && uiSrc.slice(onlineHeaderIdx, onlineHeaderIdx + 1200).includes('rulesbtn'), 'オンラインのヘッダー(Online.render())に❓ボタンがあること');
+  ok(onlineHeaderIdx >= 0 && uiSrc.slice(onlineHeaderIdx, onlineHeaderIdx + 1800).includes('rulesbtn'), 'オンラインのヘッダー(Online.render())に❓ボタンがあること');
 }
 
 console.log('決着ラウンド画面文言（§4・D-1）:');
@@ -114,6 +114,30 @@ console.log('hostState の DB書き込み撤去（§2-2）:');
     'net.js に hostState への DB書き込みが存在しないこと');
   ok(/self\.store\.set\(storeKey/.test(netSrc), 'net.js が hostState をローカルstoreに保存していること');
   ok(!netSrc.includes('${base}/hostState'), 'loadOrCreate() がDBのhostStateパスを参照しないこと（storeベースに置換済み）');
+}
+
+console.log('render()停止バグの再発防止（v2指示書対応）:');
+{
+  // gmAnswerPanel: RTDBが空answersをストリップしてもクラッシュしない防御が入っていること
+  const gmPanelIdx = uiSrc.indexOf('gmAnswerPanel(v) {');
+  const gmPanelWin = gmPanelIdx >= 0 ? uiSrc.slice(gmPanelIdx, gmPanelIdx + 400) : '';
+  ok(/Object\.keys\(v\.gm\.answers \|\| \{\}\)/.test(gmPanelWin), 'gmAnswerPanel が Object.keys(v.gm.answers || {}) で防御していること');
+  ok(/Object\.entries\(v\.gm\.answers \|\| \{\}\)/.test(gmPanelWin), 'gmAnswerPanel が Object.entries(v.gm.answers || {}) で防御していること');
+
+  // render()例外の可視化: showCrashBanner が定義され、ホットシート/オンライン双方のrender()から呼ばれていること
+  ok(/function showCrashBanner\(/.test(uiSrc), 'showCrashBanner() が定義されていること');
+  const showCrashCallCount = (uiSrc.match(/showCrashBanner\(e\)/g) || []).length;
+  ok(showCrashCallCount >= 2, `showCrashBanner(e) の呼び出しがホットシート/オンライン双方のrender()に存在すること (実:${showCrashCallCount})`);
+
+  // GM画面の部屋コード常時表示（§5）
+  ok(/gmCodeBadge/.test(uiSrc), 'GM画面に部屋コードバッジ(gmCodeBadge)が実装されていること');
+  ok(/saveLastGmCode/.test(uiSrc) && /loadLastGmCode/.test(uiSrc), '部屋コードのlocalStorage保持(saveLastGmCode/loadLastGmCode)が実装されていること');
+
+  // __onlineSelfTest: fbStripを通してから描画していること（MockDBが空値を保存し続ける問題への対処）
+  const selfTestIdx = uiSrc.indexOf('window.__onlineSelfTest = async function');
+  const selfTestBody = selfTestIdx >= 0 ? uiSrc.slice(selfTestIdx, selfTestIdx + 6000) : '';
+  ok(/function fbStrip\(/.test(selfTestBody), '__onlineSelfTest が fbStrip() を持つこと（MockDBの非ストリップ挙動を補うため）');
+  ok(/coverage/.test(selfTestBody), '__onlineSelfTest がカバレッジ情報(coverage)を返すこと');
 }
 
 console.log(`\n==== static結果: ${passed} passed, ${failed} failed ====`);

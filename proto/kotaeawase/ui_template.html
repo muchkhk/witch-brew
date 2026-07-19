@@ -140,7 +140,7 @@ const A = E.Actions;
 const PLAYERS = E.DEFAULT_CONFIG.players;
 const HALF_LABEL = { zen: '前半', kou: '後半' };
 /* ---------- 版番号（唯一の定義。titleもヘッダーバッジもここから生成） ---------- */
-const VER = 'v0.7';
+const VER = 'v0.8';
 document.title = `こたえあわせ（仮）- ${VER}`;
 function verNum(v) { const m = /v?(\d+)\.(\d+)/.exec(String(v || '')); return m ? Number(m[1]) * 1000 + Number(m[2]) : -1; }
 /* ---------- 同点決着（tieBreakUsed）の表示文言（単一定義。ホットシート/オンライン/ネタばらし共用） ---------- */
@@ -262,35 +262,51 @@ function stageLabel() {
 function frame(body) {
   return `<header><h1>こたえあわせ（仮）</h1><div style="display:flex;align-items:center;gap:4px"><span class="verbadge">${VER}</span><div class="stage">${stageLabel()}</div><button id="rulesbtn" onclick="UI.showRules()" title="ルール">❓</button><button id="sndbtn" onclick="UI.toggleSnd()">${Snd.on ? '🔊' : '🔇'}</button></div></header>${bannerMsg ? `<div class="banner-warn">⚠ ${esc(bannerMsg)}</div>` : ''}${S ? scoreboard() : ''}${body}`;
 }
+/* ---------- render()例外の可視化（実装技術知見§6-14相当） ----------
+ * 「何も起きない」が最悪の状態。例外を握りつぶさず、必ず赤バナー＋console.errorで
+ * 目に見える形にする。RTDBは空コレクションを保存しないため、renderは常にこの種の
+ * 例外を起こしうる前提で書く。 */
+function showCrashBanner(e) {
+  console.error('render()で例外が発生しました:', e);
+  const app = document.getElementById('app');
+  if (!app) return;
+  const msg = (e && e.message) ? e.message : String(e);
+  app.innerHTML = `<div class="banner-warn" style="font-size:14px;padding:14px;margin:10px 0;white-space:pre-wrap">⚠ 画面の描画でエラーが発生しました。\n${esc(msg)}\n\nリロードしてください。エラーが続く場合はGMまたは開発者に連絡してください。</div>`;
+}
+
 function render() {
   const app = document.getElementById('app');
   if (ui.onlineActive) { Online.render(); return; }
   if (ui.cover) { renderCover(); return; }
   document.getElementById('cover-root')?.remove();
   const scrollY = window.scrollY; // 再描画でのスクロール飛び防止
-  let body = '';
-  if (!S) body = renderLobby();
-  else switch (S.phase) {
-    case 'basis': body = renderBasis(); break;
-    case 'commit': body = renderSeatGate('コミット'); break;
-    case 'faces': body = renderFaces(); break;
-    case 'declare': body = renderSeatGate('宣言'); break;
-    case 'scoresReady': body = renderScoresReady(); break;
-    case 'roundEnd': body = renderRoundEnd(); break;
-    case 'decisionPick': body = renderSeatGate('決着・札選択'); break;
-    case 'decisionBasis': body = renderDecisionBasis(); break;
-    case 'decisionDeclare': body = renderSeatGate('決着・予想'); break;
-    case 'decisionReady': body = renderDecisionReady(); break;
-    case 'final': body = renderFinal(); break;
-    default: body = `<div class="panel">未対応フェーズ: ${S.phase}</div>`;
+  try {
+    let body = '';
+    if (!S) body = renderLobby();
+    else switch (S.phase) {
+      case 'basis': body = renderBasis(); break;
+      case 'commit': body = renderSeatGate('コミット'); break;
+      case 'faces': body = renderFaces(); break;
+      case 'declare': body = renderSeatGate('宣言'); break;
+      case 'scoresReady': body = renderScoresReady(); break;
+      case 'roundEnd': body = renderRoundEnd(); break;
+      case 'decisionPick': body = renderSeatGate('決着・札選択'); break;
+      case 'decisionBasis': body = renderDecisionBasis(); break;
+      case 'decisionDeclare': body = renderSeatGate('決着・予想'); break;
+      case 'decisionReady': body = renderDecisionReady(); break;
+      case 'final': body = renderFinal(); break;
+      default: body = `<div class="panel">未対応フェーズ: ${S.phase}</div>`;
+    }
+    const prevPhase = app.dataset.phase;
+    app.innerHTML = frame(body);
+    app.dataset.phase = S ? S.phase : 'lobby';
+    // 同一フェーズ内の再描画（選択・トグル等）はスクロール位置を維持、フェーズが変わったら先頭へ
+    if (prevPhase === app.dataset.phase) window.scrollTo(0, scrollY);
+    else window.scrollTo(0, 0);
+    renderGM();
+  } catch (e) {
+    showCrashBanner(e);
   }
-  const prevPhase = app.dataset.phase;
-  app.innerHTML = frame(body);
-  app.dataset.phase = S ? S.phase : 'lobby';
-  // 同一フェーズ内の再描画（選択・トグル等）はスクロール位置を維持、フェーズが変わったら先頭へ
-  if (prevPhase === app.dataset.phase) window.scrollTo(0, scrollY);
-  else window.scrollTo(0, 0);
-  renderGM();
 }
 function renderSeatOnly(p) {
   const scrollY = window.scrollY;
@@ -783,11 +799,16 @@ const Online = {
       await window.Net.createRoom(db, this.code, { gmUid: this.uid, gmName: this.seat, deckKey: this.deckKey, now: this.now(), ver: VER });
     } catch (e) { this.flashError('作成失敗: ' + e.message); return; }
     this._presenceUnsub = window.Net.keepPresence(db, this.code, this.uid);
+    this.saveLastGmCode(this.code);
     this.subscribeRoom();
     this.subscribeView();
     this.screen = 'wait';
     Snd.click(); this.render();
   },
+  /* ---- 部屋コードのlocalStorage保持（§5・運用リスク対策） ----
+   * 画面が壊れて部屋番号が見えなくなっても、GM復帰画面に前回のコードを引き継げるようにする。 */
+  saveLastGmCode(code) { try { localStorage.setItem('kotaeawase:lastGmCode', code); } catch (e) {} },
+  loadLastGmCode() { try { return localStorage.getItem('kotaeawase:lastGmCode') || ''; } catch (e) { return ''; } },
   async doJoin() {
     const code = (document.getElementById('ol-code')?.value || '').toUpperCase().trim();
     if (!code) { this.flashError('部屋コードを入力してください'); return; }
@@ -914,6 +935,7 @@ const Online = {
     const db = this.db, code = this.code;
     try { await db.ref(`rooms/${code}/meta/hostUid`).set(this.uid); } catch (e) {} // 二重ホスト防止: 自分を最新のhostUidにする
     this._presenceUnsub = window.Net.keepPresence(db, code, this.uid);
+    this.saveLastGmCode(code);
     this.subscribeView();
     const src = this.deckKey === 'real' && window.REAL_DECKS ? window.REAL_DECKS : window.DUMMY_DECKS;
     const host = window.Net.RoomHost(db, code, { engine: E, deckSets: src, gmName: E.DEFAULT_CONFIG.gmName, now: this.now(), onPublish: () => {}, hostUid: this.uid });
@@ -947,23 +969,29 @@ const Online = {
   card(id) { return (this.view && this.view.cardMeta && this.view.cardMeta[id]) || { id, name: '?', cost: '-', type: '-', effect: '' }; },
   render() {
     const app = document.getElementById('app');
-    let body;
-    if (this.screen === 'role') body = this.renderRole();
-    else if (this.screen === 'joinform') body = this.renderJoinForm();
-    else if (this.screen === 'seatpick') body = this.renderSeatPick();
-    else if (this.screen === 'wait') body = this.renderWait();
-    else if (this.screen === 'game') body = this.renderGame();
-    else if (this.screen === 'gmResumeCode') body = this.renderGmResumeCode();
-    else if (this.screen === 'gmResumeFile') body = this.renderGmResumeFile();
-    else if (this.screen === 'verMismatch') body = this.renderVerMismatch();
-    else body = '<div class="panel">…</div>';
-    const err = this._err ? `<div class="banner-warn">⚠ ${esc(this._err)}</div>` : '';
-    app.innerHTML = `<header><h1>こたえあわせ（仮）</h1><div style="display:flex;align-items:center;gap:4px">
-      <span class="verbadge">${VER}</span>
-      <div class="stage">${this.screen === 'game' && this.view ? esc(this.stageV()) : 'オンライン'}</div>
-      <button id="rulesbtn" onclick="UI.showRules()" title="ルール">❓</button>
-      <button id="sndbtn" onclick="UI.toggleSnd()">${Snd.on ? '🔊' : '🔇'}</button></div></header>
-      ${this.view && this.screen === 'game' ? this.scoreV() : ''}${err}${body}`;
+    try {
+      let body;
+      if (this.screen === 'role') body = this.renderRole();
+      else if (this.screen === 'joinform') body = this.renderJoinForm();
+      else if (this.screen === 'seatpick') body = this.renderSeatPick();
+      else if (this.screen === 'wait') body = this.renderWait();
+      else if (this.screen === 'game') body = this.renderGame();
+      else if (this.screen === 'gmResumeCode') body = this.renderGmResumeCode();
+      else if (this.screen === 'gmResumeFile') body = this.renderGmResumeFile();
+      else if (this.screen === 'verMismatch') body = this.renderVerMismatch();
+      else body = '<div class="panel">…</div>';
+      const err = this._err ? `<div class="banner-warn">⚠ ${esc(this._err)}</div>` : '';
+      const gmCodeBadge = (this.role === 'gm' && this.code) ? `<span class="verbadge" style="font-family:monospace;letter-spacing:2px" title="部屋コード">${esc(this.code)}</span>` : '';
+      app.innerHTML = `<header><h1>こたえあわせ（仮）</h1><div style="display:flex;align-items:center;gap:4px">
+        <span class="verbadge">${VER}</span>
+        ${gmCodeBadge}
+        <div class="stage">${this.screen === 'game' && this.view ? esc(this.stageV()) : 'オンライン'}</div>
+        <button id="rulesbtn" onclick="UI.showRules()" title="ルール">❓</button>
+        <button id="sndbtn" onclick="UI.toggleSnd()">${Snd.on ? '🔊' : '🔇'}</button></div></header>
+        ${this.view && this.screen === 'game' ? this.scoreV() : ''}${err}${body}`;
+    } catch (e) {
+      showCrashBanner(e);
+    }
   },
   stageV() {
     const v = this.view; if (!v) return 'オンライン';
@@ -1000,10 +1028,12 @@ const Online = {
     </div>`;
   },
   renderGmResumeCode() {
+    const last = this.loadLastGmCode();
     return `<div class="panel center">
       <h2>GMとして部屋に復帰</h2>
       <label>部屋コード（4文字）</label>
-      <input type="text" id="ol-resume-code" maxlength="4" style="text-transform:uppercase;text-align:center;letter-spacing:6px;font-family:monospace" placeholder="ABCD">
+      <input type="text" id="ol-resume-code" maxlength="4" style="text-transform:uppercase;text-align:center;letter-spacing:6px;font-family:monospace" placeholder="ABCD" value="${esc(last)}">
+      ${last ? `<p class="muted" style="margin-top:4px">この端末が最後にホストした部屋: <span style="font-family:monospace">${esc(last)}</span></p>` : ''}
       <p class="muted" style="margin-top:8px">この端末に保存された続きがあれば、そのまま復帰します。</p>
       <button class="primary big" onclick="Online.doResumeGM()">復帰する</button>
       <button onclick="Online.screen='role';Online.render()">戻る</button>
@@ -1133,8 +1163,10 @@ const Online = {
     }
   },
   gmAnswerPanel(v) {
-    if (!v.gm || !Object.keys(v.gm.answers).length) return '';
-    const rows = Object.entries(v.gm.answers).map(([p, a]) => `<tr><td>${esc(p)}</td><td>${esc(this.card(a.cardId).name)}</td><td>${E.scoreLabel(a.zen)}</td><td>${E.scoreLabel(a.kou)}</td><td>${a.overallZen.toFixed(2)}/${a.overallKou.toFixed(2)}</td></tr>`).join('');
+    // RTDBは空オブジェクトのキーを保存しない。誰も回答していない瞬間はv.gm.answersが
+    // まるごと欠落して返る（v.gm自体はhands等が非空なら残る）。ゼロ件は正規の状態として扱う。
+    if (!v.gm || !Object.keys(v.gm.answers || {}).length) return '';
+    const rows = Object.entries(v.gm.answers || {}).map(([p, a]) => `<tr><td>${esc(p)}</td><td>${esc(this.card(a.cardId).name)}</td><td>${E.scoreLabel(a.zen)}</td><td>${E.scoreLabel(a.kou)}</td><td>${a.overallZen.toFixed(2)}/${a.overallKou.toFixed(2)}</td></tr>`).join('');
     return `<details style="margin-top:10px"><summary style="color:var(--acc);cursor:pointer">🔑 GM専用：現在の答え（プレイヤーに見せない）</summary>
       <table style="margin-top:6px"><tr><th>出した人</th><th>札</th><th>前半</th><th>後半</th><th>副基準 前/後</th></tr>${rows}</table></details>`;
   },
@@ -1198,20 +1230,38 @@ window.__onlineSelfTest = async function (seed) {
   const clients = {}; for (const s of P) { clients[s] = N.RoomClient(db, code, s); clients[s].onView(() => {}); }
   await host.start(); await tick();
 
+  /* Firebase相当のストリップ（test_resume_strip.jsのfbStrip()と同型）。
+   * MockDBは空オブジェクト/空配列を保存し続けるため、本番RTDBが起こす「空コレクションの消失」
+   * （v0.7・実機4窓テストで発生したgmAnswerPanelクラッシュの直接原因）を、このセルフテストは
+   * 従来ストリップ無しで描画していたため検出できなかった。以降は毎回このストリップを通す。 */
+  function fbStrip(x) {
+    if (x === null || x === undefined) return undefined;
+    if (Array.isArray(x)) { const a = x.map(fbStrip).filter((y) => y !== undefined); return a.length ? a : undefined; }
+    if (typeof x === 'object') { const o = {}; for (const k of Object.keys(x)) { const sv = fbStrip(x[k]); if (sv !== undefined) o[k] = sv; } return Object.keys(o).length ? o : undefined; }
+    return x;
+  }
+
   // 各座席のビューを Online.render に流して描画エラーを検出
   const seenPhases = new Set();
+  let basisCount = 0, sawZeroAnswers = false, sawCrashBanner = false;
   async function renderAllSeats(tag) {
     for (const seat of [...P, GM]) {
-      const v = await db.ref(`rooms/${code}/views/${seat}`).get();
-      if (!v) continue;
+      const raw = await db.ref(`rooms/${code}/views/${seat}`).get();
+      if (!raw) continue;
+      const v = fbStrip(raw); // 本番相当にストリップしてから描画する（生のrawは使わない）
+      if (seat === GM && v && v.gm && !v.gm.answers) sawZeroAnswers = true;
       try {
         Online.db = db; Online.code = code; Online.seat = seat; Online.view = v; Online.screen = 'game'; ui.onlineActive = true;
         Online.render();
         const html = document.getElementById('app').innerHTML;
         if (/undefined|NaN|\[object Object\]/.test(html)) errors.push(`${tag}/${seat}: 不正な描画(${html.match(/undefined|NaN|\[object Object\]/)})`);
+        // render()は工程4でtry/catchされ、例外は投げずにエラーバナーへ置き換わる。
+        // バナーが出ていること自体を検出漏れにしないよう、文言でも判定する。
+        if (html.includes('画面の描画でエラーが発生しました')) { sawCrashBanner = true; errors.push(`${tag}/${seat}: render()がエラーバナーを表示した`); }
         checks++;
       } catch (e) { errors.push(`${tag}/${seat}: 例外 ${e.message}`); }
     }
+    if (host.state.phase === 'basis' && Object.keys(host.state.committed || {}).length === 0) basisCount++;
     seenPhases.add(host.state.phase);
   }
 
@@ -1236,7 +1286,23 @@ window.__onlineSelfTest = async function (seed) {
   await renderAllSeats('final');
   host.stop(); Object.values(clients).forEach((c) => c.stop());
   ui.onlineActive = false; Online.view = null;
-  return { ok: errors.length === 0 && host.state.phase === 'final', phase: host.state.phase, checks, phases: [...seenPhases], errors, rounds: host.state.history.filter((h) => h.kind === 'round').length };
+  // カバレッジ表明（工程6）：
+  //  ・全員着席→開始→GM画面描画 … basisCount>=1（初回のbasisで必ずGM描画を通る）
+  //  ・回答ゼロ件の状態で全画面描画 … sawZeroAnswers（ストリップ後にv.gm.answersが欠落する瞬間を検出）
+  //  ・章の切り替わり直後の描画 … basisCount>=3（第1〜3章それぞれの開始直後にbasisを踏む）
+  const coverage = {
+    allSeatedThenStartGmRenders: basisCount >= 1,
+    zeroAnswersRendersCleanly: sawZeroAnswers && !sawCrashBanner,
+    chapterTransitionsRendered: basisCount >= 3,
+    basisPhaseHits: basisCount,
+  };
+  return {
+    ok: errors.length === 0 && host.state.phase === 'final'
+      && coverage.allSeatedThenStartGmRenders && coverage.zeroAnswersRendersCleanly && coverage.chapterTransitionsRendered,
+    phase: host.state.phase, checks, phases: [...seenPhases], errors,
+    rounds: host.state.history.filter((h) => h.kind === 'round').length,
+    coverage,
+  };
 };
 
 render();
