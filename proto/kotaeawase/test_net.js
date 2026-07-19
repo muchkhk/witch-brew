@@ -11,17 +11,22 @@ function lcg(s) { s = s >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>>
 function mkScore(rng) { const base = 1 + Math.floor(rng() * 5); const r = rng(); const mod = (base < 5 && r < .15) ? .5 : (base > 1 && r > .85) ? -.5 : 0; return { base, mod }; }
 function mkDeck(n, pfx, rng) { const cs = []; for (let i = 0; i < n; i++) { const scores = { zen: {}, kou: {} }; for (const h of ['zen', 'kou']) for (const p of [...PLAYERS, GM]) scores[h][p] = mkScore(rng); const overall = { zen: [...PLAYERS, GM].reduce((a, p) => a + scores.zen[p].base + scores.zen[p].mod, 0) / 4, kou: [...PLAYERS, GM].reduce((a, p) => a + scores.kou[p].base + scores.kou[p].mod, 0) / 4 }; const comments = {}; for (const p of [...PLAYERS, GM]) comments[p] = `c${pfx}${i}`; cs.push({ id: `${pfx}${i}`, name: `札${pfx}${i}`, cost: i % 4, type: 'スキル', effect: 'fx', char: 'X', scores, overall, comments }); } return cs; }
 function collectScores(obj, sink) { if (obj === null || typeof obj !== 'object') return; if (typeof obj.base === 'number' && 'mod' in obj && Object.keys(obj).length <= 2) { sink.push(`${obj.base}|${obj.mod}`); return; } for (const k of Object.keys(obj)) collectScores(obj[k], sink); }
+/* 場所ベースの秘匿チェック（知見§14-9対応・test_view.jsのfindSecrecyLeakと同一方式）。
+ * 判定確定済みentries(roundResult/history[]/decision.result)のscore/scoreZen/scoreKouフィールド
+ * だけを取り除いたコピーを作り、残り全体を再帰走査する。キー名や値による許可リストは使わない。 */
 function assertViewClean(view, tag) {
   if (!view || view.isGM) return; // GMは答えを持ってよい
   const metaSigs = []; collectScores(view.cardMeta, metaSigs);
   ok(metaSigs.length === 0, `${tag}: cardMetaに点数`);
-  const allowed = new Set();
-  // §3-4(v4指示書): sanitizeResult/sanitizeDecisionがscoreZen/scoreKouも公開するようになったため許可集合に加える
-  const gather = (r) => { if (r && r.entries) for (const e of r.entries) { if (e.score) allowed.add(`${e.score.base}|${e.score.mod}`); if (e.scoreZen) allowed.add(`${e.scoreZen.base}|${e.scoreZen.mod}`); if (e.scoreKou) allowed.add(`${e.scoreKou.base}|${e.scoreKou.mod}`); } };
-  gather(view.roundResult); (view.history || []).forEach(gather); gather(view.decision && view.decision.result);
-  const all = []; collectScores({ committedCards: view.committedCards, roundResult: view.roundResult, history: view.history, decision: view.decision, myHand: view.myHand, myReserved: view.myReserved }, all);
-  const leak = all.find((x) => !allowed.has(x));
-  ok(!leak, `${tag}: 未公開点数リーク ${leak || ''}`);
+  ok(view.gm === null || view.gm === undefined, `${tag}: 非GMビューにgm欄`);
+  const clone = JSON.parse(JSON.stringify(view));
+  const stripEntries = (r) => { if (r && Array.isArray(r.entries)) for (const e of r.entries) { delete e.score; delete e.scoreZen; delete e.scoreKou; } };
+  stripEntries(clone.roundResult);
+  (clone.history || []).forEach(stripEntries);
+  if (clone.decision && clone.decision.result) stripEntries(clone.decision.result);
+  delete clone.gm;
+  const leaks = []; collectScores(clone, leaks);
+  ok(leaks.length === 0, `${tag}: 未公開点数リーク ${leaks.length ? leaks[0] : ''}`);
 }
 
 async function playFullGame(seed, { injectIllegal = false, reconnectAt = -1 } = {}) {
