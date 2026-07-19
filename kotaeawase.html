@@ -1045,18 +1045,31 @@ async function setPresence(db, code, uid) {
 }
 /* Wi-Fi瞬断・スリープ復帰後にpresenceが false のまま固まらないよう、
  * .info/connected が true に戻るたびに presence を再設定＋onDisconnectを張り直す。
- * .info/connected を購読できない環境（MockDB等）では、従来どおり1回だけsetして例外を投げない。 */
-function keepPresence(db, code, uid) {
+ * .info/connected を購読できない環境（MockDB等）では、従来どおり1回だけsetして例外を投げない。
+ *
+ * v0.9・工程3：上記の再試行は「.info/connectedの変化イベント」に依存するため、
+ * 接続が切れたと検知されないまま繋がらない場合は永久に自己修復しない（v0.8.2で実証済み）。
+ * これを補うため、既存の再試行経路は変更せず、定期的な再書き込み（ハートビート）を追加する。
+ * opts.heartbeatMs（既定20秒）・opts.onHeartbeatError（書き込み失敗を呼び出し側へ通知する
+ * フック。net.js自体はDiagLog等のUI層の仕組みを知らないため、通知はコールバック経由にする）。 */
+function keepPresence(db, code, uid, opts) {
+  const heartbeatMs = (opts && opts.heartbeatMs) || 20000;
+  const onHeartbeatError = opts && opts.onHeartbeatError;
   const ref = db.ref(`rooms/${code}/presence/${uid}`);
-  const setOn = async () => { try { await ref.set(true); await ref.onDisconnect().set(false); } catch (e) {} };
-  setOn();
+  const setOn = async (isHeartbeat) => {
+    try { await ref.set(true); await ref.onDisconnect().set(false); }
+    catch (e) { if (isHeartbeat && onHeartbeatError) { try { onHeartbeatError(e); } catch (e2) {} } }
+  };
+  setOn(false);
+  let infoUnsub = () => {};
   try {
     const infoRef = db.ref('.info/connected');
     if (infoRef && typeof infoRef.on === 'function') {
-      return infoRef.on('value', (connected) => { if (connected) setOn(); });
+      infoUnsub = infoRef.on('value', (connected) => { if (connected) setOn(false); });
     }
   } catch (e) { /* .info/connected 非対応: 上のsetOn()一回きりにフォールバック */ }
-  return () => {};
+  const heartbeat = setInterval(() => setOn(true), heartbeatMs);
+  return () => { try { infoUnsub && infoUnsub(); } catch (e) {} clearInterval(heartbeat); };
 }
 function watchRoom(db, code, cb) {
   const unsubs = [
@@ -1103,7 +1116,7 @@ const A = E.Actions;
 const PLAYERS = E.DEFAULT_CONFIG.players;
 const HALF_LABEL = { zen: '前半', kou: '後半' };
 /* ---------- 版番号（唯一の定義。titleもヘッダーバッジもここから生成） ---------- */
-const VER = 'v0.8.2';
+const VER = 'v0.9';
 document.title = `こたえあわせ（仮）- ${VER}`;
 function verNum(v) { const m = /v?(\d+)\.(\d+)/.exec(String(v || '')); return m ? Number(m[1]) * 1000 + Number(m[2]) : -1; }
 /* ---------- 同点決着（tieBreakUsed）の表示文言（単一定義。ホットシート/オンライン/ネタばらし共用） ---------- */
@@ -1743,6 +1756,11 @@ function makeDiagStore() {
     set(k, v) { base.set(k, v); DiagLog.push('localStorage:set', { key: k, phase: v && v.phase }); },
   };
 }
+/* keepPresence()のハートビート失敗をDiagLogへ記録する（v0.9・工程3）。
+ * net.js自体はDiagLogを知らないため、UI層からコールバック経由で結線する。 */
+function keepPresenceOpts() {
+  return { onHeartbeatError: (e) => DiagLog.push('presence:heartbeat-error', { message: e && e.message }) };
+}
 
 /* ---------- RTDB由来の値への防御フォールバック（v0.8.1・工程2対応） ----------
  * viewFor()の出力は本来これらのフィールドを常に正しい形で持つはずだが、
@@ -1826,7 +1844,7 @@ const Online = {
     try {
       await window.Net.createRoom(db, this.code, { gmUid: this.uid, gmName: this.seat, deckKey: this.deckKey, now: this.now(), ver: VER });
     } catch (e) { this.flashError('作成失敗: ' + e.message); return; }
-    this._presenceUnsub = window.Net.keepPresence(db, this.code, this.uid);
+    this._presenceUnsub = window.Net.keepPresence(db, this.code, this.uid, keepPresenceOpts());
     this.saveLastGmCode(this.code);
     this.saveLastCode(this.code);
     DiagLog.push('room:create', { code: this.code, uid: this.uid });
@@ -1871,7 +1889,7 @@ const Online = {
     }
     this.name = seat; // 名前＝選んだ席
     await db.ref(`rooms/${code}/seats/${seat}`).set({ uid: this.uid, name: seat });
-    this._presenceUnsub = window.Net.keepPresence(db, code, this.uid);
+    this._presenceUnsub = window.Net.keepPresence(db, code, this.uid, keepPresenceOpts());
     this.saveLastCode(code);
     DiagLog.push('seat:claim', { code, seat, uid: this.uid, hadPriorOccupant: !!(cur && cur.uid) });
     this.seat = seat;
@@ -1930,22 +1948,46 @@ const Online = {
     const s = this.roomInfo.seats || {}, pr = this.roomInfo.presence || {};
     return PLAYERS.filter((p) => s[p] && pr[s[p].uid] === true).length;
   },
+  /* 開始ゲート専用：presenceを見ず、席の占有数だけを返す（v0.9・工程1構造修正）。
+   * seatsPresent()（presence込みの人数。他所からも参照されうるため意味は変更しない）とは別関数。
+   * 対面ゲームではGM自身の目視のほうがpresenceより信頼できる情報源であるため、
+   * ハードゲートは「席が埋まっているか」だけで判定する。 */
+  seatsClaimed() {
+    const s = this.roomInfo.seats || {};
+    return PLAYERS.filter((p) => !!s[p]).length;
+  },
   /* 開始ボタンが不活性な理由を名指しする（v0.8.2・工程0.5-a）。
-   * 「席が空」と「着席済みだが未接続（presence不整合）」を区別する（工程0-bの調査結果）。 */
+   * v0.9・工程1で開始ゲートがseats占有のみになったため、ここも「席が空」のみを理由とする。
+   * presence起因の警告は presenceWarnings() へ分離した（v0.9・工程2）。 */
   missingReasons() {
-    const s = this.roomInfo.seats || {}, pr = this.roomInfo.presence || {};
+    const s = this.roomInfo.seats || {};
     const reasons = [];
     for (const p of PLAYERS) {
       if (!s[p]) reasons.push(`席「${p}」が空`);
-      else if (pr[s[p].uid] !== true) reasons.push(`${p}が着席済みだが未接続`);
     }
     return reasons;
+  },
+  /* 席は埋まっているがpresenceが立っていない席への警告（v0.9・工程2）。
+   * 開始は妨げない。GMが「無視して進んでよい」と判断できる文言にすること。 */
+  presenceWarnings() {
+    const s = this.roomInfo.seats || {}, pr = this.roomInfo.presence || {};
+    const warns = [];
+    for (const p of PLAYERS) {
+      if (s[p] && pr[s[p].uid] !== true) warns.push(`席「${p}」は未接続の可能性があります（本人が画面を見ていれば、そのまま開始して構いません）`);
+    }
+    return warns;
   },
 
   /* ---- GMがゲーム開始 ---- */
   async startGame() {
-    DiagLog.push('startGame:click', { code: this.code, alreadyStarting: this._starting, hasHost: !!this.host, seatsPresent: this.seatsPresent() });
-    if (this._starting || this.host) { DiagLog.push('startGame:noop', { reason: this._starting ? '_starting中' : 'host既存' }); return; } // 二度押し防止
+    DiagLog.push('startGame:click', { code: this.code, alreadyStarting: this._starting, hasHost: !!this.host, seatsClaimed: this.seatsClaimed(), seatsPresent: this.seatsPresent() });
+    if (this._starting || this.host) {
+      // 「活性だが無反応」の可視化（v0.9・工程4）。ガード自体のロジックは変更しない。
+      const reason = this._starting ? '_starting中' : 'host既存';
+      DiagLog.push('startGame:noop', { reason });
+      this.flashError(this._starting ? '開始処理を実行中です…' : 'すでにホストとして起動済みです');
+      return;
+    } // 二度押し防止
     this._starting = true;
     const src = this.deckKey === 'real' && window.REAL_DECKS ? window.REAL_DECKS : window.DUMMY_DECKS;
     const host = window.Net.RoomHost(this.db, this.code, { engine: E, deckSets: src, gmName: E.DEFAULT_CONFIG.gmName, now: this.now(), onPublish: (st) => { DiagLog.push('publish', { code: this.code, phase: st && st.phase }); }, hostUid: this.uid, store: makeDiagStore() });
@@ -1991,7 +2033,7 @@ const Online = {
     if (this.host) { try { this.host.stop(); } catch (e) {} this.host = null; }
     const db = this.db, code = this.code;
     try { await db.ref(`rooms/${code}/meta/hostUid`).set(this.uid); } catch (e) {} // 二重ホスト防止: 自分を最新のhostUidにする
-    this._presenceUnsub = window.Net.keepPresence(db, code, this.uid);
+    this._presenceUnsub = window.Net.keepPresence(db, code, this.uid, keepPresenceOpts());
     this.saveLastGmCode(code);
     this.saveLastCode(code);
     this.subscribeView();
@@ -2155,17 +2197,18 @@ const Online = {
   },
   renderWait() {
     const s = this.roomInfo.seats || {}, pr = this.roomInfo.presence || {};
-    const present = this.seatsPresent();
+    const claimed = this.seatsClaimed();
     const isGM = this.seat === E.DEFAULT_CONFIG.gmName;
     const gmSeat = E.DEFAULT_CONFIG.gmName;
     const gmOnline = s[gmSeat] && pr[s[gmSeat].uid] === true;
     if (isGM) {
-      // 開始ボタンの活性判定を毎回ログする（工程0.5-b：判定結果と、そのとき見えていた着席状況）
+      // 開始ボタンの活性判定を毎回ログする（工程0.5-b／v0.9・工程1で判定基準をseats占有のみに変更）
       const reasons = this.missingReasons();
-      const lastKey = `wait:${present}:${reasons.join(',')}`;
+      const warns = this.presenceWarnings();
+      const lastKey = `wait:${claimed}:${reasons.join(',')}:${warns.join(',')}`;
       if (this._lastWaitLogKey !== lastKey) {
         this._lastWaitLogKey = lastKey;
-        DiagLog.push('startButton:judge', { present, canStart: present >= 3, reasons, seats: s, presence: pr });
+        DiagLog.push('startButton:judge', { claimed, canStart: claimed >= 3, reasons, warns, seats: s, presence: pr });
       }
     }
     return `<div class="panel">
@@ -2176,9 +2219,10 @@ const Online = {
       ${PLAYERS.map((p) => { const t = s[p] && s[p].uid, on = t && pr[s[p].uid] === true; return `<div class="seatrow ${p === this.seat ? 'me' : ''}"><span><span class="dot ${on ? 'on' : 'off'}"></span>${esc(p)}</span><span class="muted">${t ? esc(s[p].name) + (on ? '' : '・切断中') : '空席'}${p === this.seat ? ' (あなた)' : ''}</span></div>`; }).join('')}
       ${isGM
         ? `<div class="center" style="margin-top:14px">
-            <p class="muted">${present}/3 人が参加中${present < 3 ? '（全員そろうと開始できます）' : ''}</p>
-            ${present < 3 ? `<p class="banner-warn" style="text-align:left">開始できません：着席 ${present}/3（${esc(this.missingReasons().join('・'))}）</p>` : ''}
-            <button class="primary big" ${present >= 3 ? '' : 'disabled'} onclick="Online.startGame()">全員そろった — ゲーム開始</button>
+            <p class="muted">${claimed}/3 人が着席${claimed < 3 ? '（全員着席すると開始できます）' : ''}</p>
+            ${claimed < 3 ? `<p class="banner-warn" style="text-align:left">開始できません：着席 ${claimed}/3（${esc(this.missingReasons().join('・'))}）</p>` : ''}
+            ${this.presenceWarnings().length ? `<p class="muted" style="text-align:left;font-size:12px">${this.presenceWarnings().map(esc).join('<br>')}</p>` : ''}
+            <button class="primary big" ${claimed >= 3 ? '' : 'disabled'} onclick="Online.startGame()">全員そろった — ゲーム開始</button>
             <div style="margin-top:10px"><button onclick="Online.exportDiagLog()" style="font-size:11px">🩺 診断ログを書き出す</button></div>
            </div>`
         : `<div class="waitbox"><div class="spin">⏳</div><p class="muted">GMの開始を待っています…</p></div>`}

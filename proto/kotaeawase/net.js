@@ -315,18 +315,31 @@ async function setPresence(db, code, uid) {
 }
 /* Wi-Fi瞬断・スリープ復帰後にpresenceが false のまま固まらないよう、
  * .info/connected が true に戻るたびに presence を再設定＋onDisconnectを張り直す。
- * .info/connected を購読できない環境（MockDB等）では、従来どおり1回だけsetして例外を投げない。 */
-function keepPresence(db, code, uid) {
+ * .info/connected を購読できない環境（MockDB等）では、従来どおり1回だけsetして例外を投げない。
+ *
+ * v0.9・工程3：上記の再試行は「.info/connectedの変化イベント」に依存するため、
+ * 接続が切れたと検知されないまま繋がらない場合は永久に自己修復しない（v0.8.2で実証済み）。
+ * これを補うため、既存の再試行経路は変更せず、定期的な再書き込み（ハートビート）を追加する。
+ * opts.heartbeatMs（既定20秒）・opts.onHeartbeatError（書き込み失敗を呼び出し側へ通知する
+ * フック。net.js自体はDiagLog等のUI層の仕組みを知らないため、通知はコールバック経由にする）。 */
+function keepPresence(db, code, uid, opts) {
+  const heartbeatMs = (opts && opts.heartbeatMs) || 20000;
+  const onHeartbeatError = opts && opts.onHeartbeatError;
   const ref = db.ref(`rooms/${code}/presence/${uid}`);
-  const setOn = async () => { try { await ref.set(true); await ref.onDisconnect().set(false); } catch (e) {} };
-  setOn();
+  const setOn = async (isHeartbeat) => {
+    try { await ref.set(true); await ref.onDisconnect().set(false); }
+    catch (e) { if (isHeartbeat && onHeartbeatError) { try { onHeartbeatError(e); } catch (e2) {} } }
+  };
+  setOn(false);
+  let infoUnsub = () => {};
   try {
     const infoRef = db.ref('.info/connected');
     if (infoRef && typeof infoRef.on === 'function') {
-      return infoRef.on('value', (connected) => { if (connected) setOn(); });
+      infoUnsub = infoRef.on('value', (connected) => { if (connected) setOn(false); });
     }
   } catch (e) { /* .info/connected 非対応: 上のsetOn()一回きりにフォールバック */ }
-  return () => {};
+  const heartbeat = setInterval(() => setOn(true), heartbeatMs);
+  return () => { try { infoUnsub && infoUnsub(); } catch (e) {} clearInterval(heartbeat); };
 }
 function watchRoom(db, code, cb) {
   const unsubs = [

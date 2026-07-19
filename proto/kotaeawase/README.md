@@ -11,13 +11,13 @@
 - `cards_full.json` … 482枚の全評価抽出（base/mod表記保持）。デッキ再選定の元データ。
 - `build.py` … 結合ビルド。公開先はリポジトリ直下 `kotaeawase.html`（ASCII固定名・版番号はファイル名に入れない）。
   `python3 build.py ../../kotaeawase.html`（`proto/kotaeawase/`から実行する場合）
-- テスト: `test.js`(エンジン) / `test_view.js`(秘匿不変条件・§14-9故意注入の存在証明を含む) / `test_net.js`(結合) / `test_force.js`(未提出スキップ) / `test_resume_strip.js`(hostStateローカル化・空値ストリップ回帰・GM復帰) / `test_static.js`(ソーステキストの静的検証: alert/confirm撲滅・版ガード・ルール到達性・核漏洩防止等)
+- テスト: `test.js`(エンジン) / `test_view.js`(秘匿不変条件・§14-9故意注入の存在証明を含む) / `test_net.js`(結合) / `test_force.js`(未提出スキップ) / `test_resume_strip.js`(hostStateローカル化・空値ストリップ回帰・GM復帰) / `test_static.js`(ソーステキストの静的検証: alert/confirm撲滅・版ガード・ルール到達性・核漏洩防止等) / `test_gate.js`(v0.9: 開始ゲートのseats/presence分離・presenceハートビートの自己修復と後始末)
   - 実行: `node test.js` 等。ブラウザ検証は `smoke*.js`（Chromium executablePath要指定。未同梱）。
 
 ## ビルド & テスト
 ```
 python3 build.py ../../kotaeawase.html
-node test.js && node test_view.js && node test_net.js && node test_force.js && node test_resume_strip.js && node test_static.js
+node test.js && node test_view.js && node test_net.js && node test_force.js && node test_resume_strip.js && node test_static.js && node test_gate.js
 ```
 **「テストした成果物＝出荷する成果物」**を保つため、`build.py`はリポジトリ直下の`kotaeawase.html`へ直接出力する（`proto/kotaeawase/`配下に別名の複製は置かない）。公開URLは `https://muchkhk.github.io/original/kotaeawase.html?v=0.7` のように、`?v=`クエリでキャッシュ対策する運用（実装技術知見§4.5-1）。
 
