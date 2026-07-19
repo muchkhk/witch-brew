@@ -140,7 +140,7 @@ const A = E.Actions;
 const PLAYERS = E.DEFAULT_CONFIG.players;
 const HALF_LABEL = { zen: '前半', kou: '後半' };
 /* ---------- 版番号（唯一の定義。titleもヘッダーバッジもここから生成） ---------- */
-const VER = 'v0.8.1';
+const VER = 'v0.8.2';
 document.title = `こたえあわせ（仮）- ${VER}`;
 function verNum(v) { const m = /v?(\d+)\.(\d+)/.exec(String(v || '')); return m ? Number(m[1]) * 1000 + Number(m[2]) : -1; }
 /* ---------- 同点決着（tieBreakUsed）の表示文言（単一定義。ホットシート/オンライン/ネタばらし共用） ---------- */
@@ -756,6 +756,31 @@ window.UI = {
   },
 };
 
+/* ---------- 診断ログ（v0.8.2・工程0.5-b） ----------
+ * 「開始ボタンが押せない」等の間欠障害を、次に発生した瞬間に原因が確定する状態にする
+ * ためのリングバッファ。純粋にメモリ上へpushするだけで、既存の動作タイミングには
+ * 一切影響しない（await・非同期処理を挟まない）。常時記録し続け、GM画面から書き出せる。 */
+const DiagLog = {
+  buf: [], MAX: 400,
+  push(kind, detail) {
+    this.buf.push({ t: Date.now(), kind, detail: detail === undefined ? null : detail });
+    if (this.buf.length > this.MAX) this.buf.shift();
+  },
+  dump() { return this.buf.slice(); },
+  dumpText() {
+    return this.buf.map((e) => `${new Date(e.t).toISOString()} [${e.kind}] ${e.detail !== null ? JSON.stringify(e.detail) : ''}`).join('\n');
+  },
+};
+/* net.jsのRoomHostへ渡すstoreを、読み書きのたびに診断ログへ記録するラッパーに差し替える。
+ * net.js自体（loadOrCreate/publish）は無改変。既存のdefaultLocalStore()をそのまま包むだけ。 */
+function makeDiagStore() {
+  const base = (window.Net && window.Net.defaultLocalStore) ? window.Net.defaultLocalStore() : { get: () => null, set: () => {} };
+  return {
+    get(k) { const v = base.get(k); DiagLog.push('localStorage:get', { key: k, found: v !== null && v !== undefined }); return v; },
+    set(k, v) { base.set(k, v); DiagLog.push('localStorage:set', { key: k, phase: v && v.phase }); },
+  };
+}
+
 /* ---------- RTDB由来の値への防御フォールバック（v0.8.1・工程2対応） ----------
  * viewFor()の出力は本来これらのフィールドを常に正しい形で持つはずだが、
  * 「本来あるべき値が来なかった」場合に無防備なまま例外で画面を止めないための
@@ -763,6 +788,7 @@ window.UI = {
  * （出ない場合は防御コードに到達していない＝合成viewテストでfailとする）。 */
 function rtdbFallback(where, got) {
   console.warn(`[rtdb-fallback] ${where}`, got);
+  DiagLog.push('rtdb-fallback', { where, got: (() => { try { return JSON.parse(JSON.stringify(got)); } catch (e) { return String(got); } })() });
 }
 function safePlayers(v, where) {
   const p = v && v.config && v.config.players;
@@ -839,15 +865,26 @@ const Online = {
     } catch (e) { this.flashError('作成失敗: ' + e.message); return; }
     this._presenceUnsub = window.Net.keepPresence(db, this.code, this.uid);
     this.saveLastGmCode(this.code);
+    this.saveLastCode(this.code);
+    DiagLog.push('room:create', { code: this.code, uid: this.uid });
     this.subscribeRoom();
     this.subscribeView();
     this.screen = 'wait';
     Snd.click(); this.render();
   },
-  /* ---- 部屋コードのlocalStorage保持（§5・運用リスク対策） ----
-   * 画面が壊れて部屋番号が見えなくなっても、GM復帰画面に前回のコードを引き継げるようにする。 */
+  /* ---- 部屋コードのlocalStorage保持（§5・運用リスク対策 / v0.8.2工程2で汎用化） ----
+   * 画面が壊れて部屋番号が見えなくなっても、GM復帰画面・入室画面に前回のコードを
+   * 引き継げるようにする。権威状態ではない単なるメモであり、これが無くても既存の
+   * 動作は一切変わらない。 */
   saveLastGmCode(code) { try { localStorage.setItem('kotaeawase:lastGmCode', code); } catch (e) {} },
   loadLastGmCode() { try { return localStorage.getItem('kotaeawase:lastGmCode') || ''; } catch (e) { return ''; } },
+  saveLastCode(code) { try { localStorage.setItem('kotaeawase:lastCode', code); } catch (e) {} },
+  loadLastCode() { try { return localStorage.getItem('kotaeawase:lastCode') || ''; } catch (e) { return ''; } },
+  async copyCode() {
+    if (!this.code) return;
+    try { await navigator.clipboard.writeText(this.code); this.flashError(`部屋コード ${this.code} をコピーしました`); }
+    catch (e) {}
+  },
   async doJoin() {
     const code = (document.getElementById('ol-code')?.value || '').toUpperCase().trim();
     if (!code) { this.flashError('部屋コードを入力してください'); return; }
@@ -856,6 +893,7 @@ const Online = {
     const meta = await db.ref(`rooms/${code}/meta`).get();
     if (!meta) { this.flashError('その部屋は見つかりません'); return; }
     if (meta.ver && meta.ver !== VER) { this.showVerMismatch(meta.ver); return; }
+    DiagLog.push('room:join', { code });
     this.subscribeRoom();
     this.screen = 'seatpick';
     Snd.click(); this.render();
@@ -871,6 +909,8 @@ const Online = {
     this.name = seat; // 名前＝選んだ席
     await db.ref(`rooms/${code}/seats/${seat}`).set({ uid: this.uid, name: seat });
     this._presenceUnsub = window.Net.keepPresence(db, code, this.uid);
+    this.saveLastCode(code);
+    DiagLog.push('seat:claim', { code, seat, uid: this.uid, hadPriorOccupant: !!(cur && cur.uid) });
     this.seat = seat;
     this.subscribeView();
     this.screen = 'wait';
@@ -902,6 +942,7 @@ const Online = {
   subscribeView() {
     this.client = window.Net.RoomClient(this.db, this.code, this.seat);
     this.client.onView((v) => {
+      DiagLog.push('view:received', { seat: this.seat, phase: v && v.phase, step: v && v.step });
       const was = this._lastNeedsInput;
       const nowNeeds = this.needsMyInput(v);
       if (nowNeeds && !was) Snd.yourTurn();
@@ -926,15 +967,27 @@ const Online = {
     const s = this.roomInfo.seats || {}, pr = this.roomInfo.presence || {};
     return PLAYERS.filter((p) => s[p] && pr[s[p].uid] === true).length;
   },
+  /* 開始ボタンが不活性な理由を名指しする（v0.8.2・工程0.5-a）。
+   * 「席が空」と「着席済みだが未接続（presence不整合）」を区別する（工程0-bの調査結果）。 */
+  missingReasons() {
+    const s = this.roomInfo.seats || {}, pr = this.roomInfo.presence || {};
+    const reasons = [];
+    for (const p of PLAYERS) {
+      if (!s[p]) reasons.push(`席「${p}」が空`);
+      else if (pr[s[p].uid] !== true) reasons.push(`${p}が着席済みだが未接続`);
+    }
+    return reasons;
+  },
 
   /* ---- GMがゲーム開始 ---- */
   async startGame() {
-    if (this._starting || this.host) return; // 二度押し防止
+    DiagLog.push('startGame:click', { code: this.code, alreadyStarting: this._starting, hasHost: !!this.host, seatsPresent: this.seatsPresent() });
+    if (this._starting || this.host) { DiagLog.push('startGame:noop', { reason: this._starting ? '_starting中' : 'host既存' }); return; } // 二度押し防止
     this._starting = true;
     const src = this.deckKey === 'real' && window.REAL_DECKS ? window.REAL_DECKS : window.DUMMY_DECKS;
-    const host = window.Net.RoomHost(this.db, this.code, { engine: E, deckSets: src, gmName: E.DEFAULT_CONFIG.gmName, now: this.now(), onPublish: () => {}, hostUid: this.uid });
-    try { await host.start(); await window.Net.startRoom(this.db, this.code); this.host = host; }
-    catch (e) { this._starting = false; this.flashError('開始失敗: ' + e.message); return; }
+    const host = window.Net.RoomHost(this.db, this.code, { engine: E, deckSets: src, gmName: E.DEFAULT_CONFIG.gmName, now: this.now(), onPublish: (st) => { DiagLog.push('publish', { code: this.code, phase: st && st.phase }); }, hostUid: this.uid, store: makeDiagStore() });
+    try { await host.start(); await window.Net.startRoom(this.db, this.code); this.host = host; DiagLog.push('startGame:success', { code: this.code }); }
+    catch (e) { this._starting = false; DiagLog.push('startGame:error', { message: e.message }); this.flashError('開始失敗: ' + e.message); return; }
     Snd.win();
   },
   /* ---- GM復帰（§2-1）: 端末のローカル保存から、または状態ファイルから ---- */
@@ -946,9 +999,10 @@ const Online = {
     if (!meta) { this.flashError('その部屋は見つかりません'); return; }
     this.db = db; this.code = code;
     if (meta.ver && meta.ver !== VER) { this.showVerMismatch(meta.ver); return; }
-    const store = window.Net.defaultLocalStore();
+    const store = makeDiagStore();
     const saved = store.get(window.Net.hostStoreKey(code));
     this.role = 'gm'; this.seat = E.DEFAULT_CONFIG.gmName; this.name = this.seat;
+    DiagLog.push('gmResume:attempt', { code, foundLocalState: !!(saved && saved.phase) });
     if (!saved || !saved.phase) {
       this._resumeCode = code;
       this.screen = 'gmResumeFile';
@@ -970,16 +1024,19 @@ const Online = {
     } catch (e) { this.flashError('読み込み失敗: ' + e.message); }
   },
   async _startGmHost(preloadedState) {
+    DiagLog.push('gmHost:start', { code: this.code, preloaded: !!preloadedState });
     if (this.host) { try { this.host.stop(); } catch (e) {} this.host = null; }
     const db = this.db, code = this.code;
     try { await db.ref(`rooms/${code}/meta/hostUid`).set(this.uid); } catch (e) {} // 二重ホスト防止: 自分を最新のhostUidにする
     this._presenceUnsub = window.Net.keepPresence(db, code, this.uid);
     this.saveLastGmCode(code);
+    this.saveLastCode(code);
     this.subscribeView();
     const src = this.deckKey === 'real' && window.REAL_DECKS ? window.REAL_DECKS : window.DUMMY_DECKS;
-    const host = window.Net.RoomHost(db, code, { engine: E, deckSets: src, gmName: E.DEFAULT_CONFIG.gmName, now: this.now(), onPublish: () => {}, hostUid: this.uid });
-    try { await host.start(preloadedState); } catch (e) { this.flashError('復帰失敗: ' + e.message); return; }
+    const host = window.Net.RoomHost(db, code, { engine: E, deckSets: src, gmName: E.DEFAULT_CONFIG.gmName, now: this.now(), onPublish: (st) => { DiagLog.push('publish', { code, phase: st && st.phase }); }, hostUid: this.uid, store: makeDiagStore() });
+    try { await host.start(preloadedState); } catch (e) { DiagLog.push('gmHost:error', { message: e.message }); this.flashError('復帰失敗: ' + e.message); return; }
     this.host = host;
+    DiagLog.push('gmHost:success', { code });
     Snd.win();
   },
   exportState() {
@@ -987,6 +1044,20 @@ const Online = {
     const blob = new Blob([JSON.stringify({ state: this.host.state, ts: new Date().toISOString() }, null, 1)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = `kotaeawase_${this.code}_state.json`; a.click();
+  },
+  /* ---- 診断ログの書き出し（v0.8.2・工程0.5-c） ----
+   * 障害発生時に人間が押すだけで、原因調査に必要な情報が全部取れることが要件。
+   * 開始ボタンが押せない等、ゲーム開始前（wait画面）でも押せる位置に置く。 */
+  async exportDiagLog() {
+    const text = DiagLog.dumpText();
+    try {
+      await navigator.clipboard.writeText(text);
+      this.flashError(`診断ログをコピーしました（${DiagLog.dump().length}件）`);
+    } catch (e) {
+      const blob = new Blob([text], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = `kotaeawase_diag_${this.code || 'unknown'}.txt`; a.click();
+    }
   },
   // GMアクション（安全ラッパ）
   async gm(fn) { try { await fn(); } catch (e) { this.flashError('操作エラー: ' + e.message); } },
@@ -1020,10 +1091,11 @@ const Online = {
       else if (this.screen === 'verMismatch') body = this.renderVerMismatch();
       else body = '<div class="panel">…</div>';
       const err = this._err ? `<div class="banner-warn">⚠ ${esc(this._err)}</div>` : '';
-      const gmCodeBadge = (this.role === 'gm' && this.code) ? `<span class="verbadge" style="font-family:monospace;letter-spacing:2px" title="部屋コード">${esc(this.code)}</span>` : '';
+      // 部屋コードバッジ（v0.8.2工程1）：GM/プレイヤー問わず、部屋に入っている全フェーズで常時表示する
+      const codeBadge = this.code ? `<span class="verbadge" style="font-family:monospace;letter-spacing:2px;cursor:pointer" title="部屋コード（タップでコピー）" onclick="Online.copyCode()">${esc(this.code)}</span>` : '';
       app.innerHTML = `<header><h1>こたえあわせ（仮）</h1><div style="display:flex;align-items:center;gap:4px">
         <span class="verbadge">${VER}</span>
-        ${gmCodeBadge}
+        ${codeBadge}
         <div class="stage">${this.screen === 'game' && this.view ? esc(this.stageV()) : 'オンライン'}</div>
         <button id="rulesbtn" onclick="UI.showRules()" title="ルール">❓</button>
         <button id="sndbtn" onclick="UI.toggleSnd()">${Snd.on ? '🔊' : '🔇'}</button></div></header>
@@ -1047,9 +1119,11 @@ const Online = {
   },
   renderRole() {
     const hasReal = !!window.REAL_DECKS;
+    const lastCode = this.loadLastCode();
     return `<div class="panel center">
       <h2>オンライン対戦</h2>
       <p class="muted">各自の端末で参加します。GM（マッチ）が部屋を作り、3人が参加コードで入室します。</p>
+      ${lastCode ? `<div style="margin:10px 0"><button onclick="Online.screen='joinform';Online.render()">前回の部屋（${esc(lastCode)}）に戻る</button></div>` : ''}
       <div style="margin:14px 0">
         <div class="rsec" style="justify-content:center">🎙️ GM（マッチ）として部屋を作る</div>
         <button class="primary big" onclick="Online.doCreate()">部屋を作成</button>
@@ -1091,10 +1165,11 @@ const Online = {
     </div>`;
   },
   renderJoinForm() {
+    const last = this.loadLastCode();
     return `<div class="panel center">
       <h2>部屋に参加</h2>
       <label>参加コード（4文字）</label>
-      <input type="text" id="ol-code" maxlength="4" style="text-transform:uppercase;text-align:center;letter-spacing:6px;font-family:monospace" placeholder="ABCD">
+      <input type="text" id="ol-code" maxlength="4" style="text-transform:uppercase;text-align:center;letter-spacing:6px;font-family:monospace" placeholder="ABCD" value="${esc(last)}">
       <p class="muted" style="margin-top:8px">次の画面で自分（からあげ／てかさ／逆廻）を選びます。</p>
       <button class="primary big" onclick="Online.doJoin()">参加する</button>
       <button onclick="Online.screen='role';Online.render()">戻る</button>
@@ -1121,6 +1196,15 @@ const Online = {
     const isGM = this.seat === E.DEFAULT_CONFIG.gmName;
     const gmSeat = E.DEFAULT_CONFIG.gmName;
     const gmOnline = s[gmSeat] && pr[s[gmSeat].uid] === true;
+    if (isGM) {
+      // 開始ボタンの活性判定を毎回ログする（工程0.5-b：判定結果と、そのとき見えていた着席状況）
+      const reasons = this.missingReasons();
+      const lastKey = `wait:${present}:${reasons.join(',')}`;
+      if (this._lastWaitLogKey !== lastKey) {
+        this._lastWaitLogKey = lastKey;
+        DiagLog.push('startButton:judge', { present, canStart: present >= 3, reasons, seats: s, presence: pr });
+      }
+    }
     return `<div class="panel">
       <h2>待機ロビー</h2>
       <p class="center">参加コード<br><span class="rc">${esc(this.code)}</span></p>
@@ -1130,7 +1214,9 @@ const Online = {
       ${isGM
         ? `<div class="center" style="margin-top:14px">
             <p class="muted">${present}/3 人が参加中${present < 3 ? '（全員そろうと開始できます）' : ''}</p>
+            ${present < 3 ? `<p class="banner-warn" style="text-align:left">開始できません：着席 ${present}/3（${esc(this.missingReasons().join('・'))}）</p>` : ''}
             <button class="primary big" ${present >= 3 ? '' : 'disabled'} onclick="Online.startGame()">全員そろった — ゲーム開始</button>
+            <div style="margin-top:10px"><button onclick="Online.exportDiagLog()" style="font-size:11px">🩺 診断ログを書き出す</button></div>
            </div>`
         : `<div class="waitbox"><div class="spin">⏳</div><p class="muted">GMの開始を待っています…</p></div>`}
       <button onclick="Online.exit()">退出</button>
@@ -1218,7 +1304,7 @@ const Online = {
   },
   renderGM(v) {
     const half = v.currentHalf, set = v.config.sets[v.setIndex];
-    const ctrlBar = `<div class="center" style="margin-top:10px"><button onclick="Online.gm(()=>Online.host.undo())">⟲ 1手戻す</button><button onclick="Online.gm(()=>Online.host.resync())">再同期</button><button onclick="UI.showRules()">ルール</button><button onclick="Online.exportState()">状態保存</button><label style="display:inline-block;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:12px 18px;font-size:15px;cursor:pointer;margin:4px">状態ファイルから復帰<input type="file" accept=".json" style="display:none" onchange="Online.resumeFromFile(this)"></label></div>`;
+    const ctrlBar = `<div class="center" style="margin-top:10px"><button onclick="Online.gm(()=>Online.host.undo())">⟲ 1手戻す</button><button onclick="Online.gm(()=>Online.host.resync())">再同期</button><button onclick="UI.showRules()">ルール</button><button onclick="Online.exportState()">状態保存</button><button onclick="Online.exportDiagLog()" style="font-size:11px">🩺 診断ログを書き出す</button><label style="display:inline-block;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:12px 18px;font-size:15px;cursor:pointer;margin:4px">状態ファイルから復帰<input type="file" accept=".json" style="display:none" onchange="Online.resumeFromFile(this)"></label></div>`;
     let main = '';
     switch (v.phase) {
       case 'basis':
