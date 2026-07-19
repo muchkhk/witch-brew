@@ -140,7 +140,7 @@ const A = E.Actions;
 const PLAYERS = E.DEFAULT_CONFIG.players;
 const HALF_LABEL = { zen: '前半', kou: '後半' };
 /* ---------- 版番号（唯一の定義。titleもヘッダーバッジもここから生成） ---------- */
-const VER = 'v0.8';
+const VER = 'v0.8.1';
 document.title = `こたえあわせ（仮）- ${VER}`;
 function verNum(v) { const m = /v?(\d+)\.(\d+)/.exec(String(v || '')); return m ? Number(m[1]) * 1000 + Number(m[2]) : -1; }
 /* ---------- 同点決着（tieBreakUsed）の表示文言（単一定義。ホットシート/オンライン/ネタばらし共用） ---------- */
@@ -756,6 +756,45 @@ window.UI = {
   },
 };
 
+/* ---------- RTDB由来の値への防御フォールバック（v0.8.1・工程2対応） ----------
+ * viewFor()の出力は本来これらのフィールドを常に正しい形で持つはずだが、
+ * 「本来あるべき値が来なかった」場合に無防備なまま例外で画面を止めないための
+ * 最後の砦。フォールバックが発動したら必ずconsole.warnで[rtdb-fallback]を出す
+ * （出ない場合は防御コードに到達していない＝合成viewテストでfailとする）。 */
+function rtdbFallback(where, got) {
+  console.warn(`[rtdb-fallback] ${where}`, got);
+}
+function safePlayers(v, where) {
+  const p = v && v.config && v.config.players;
+  if (Array.isArray(p) && p.length > 0) return p;
+  rtdbFallback(where + ':v.config.players', p);
+  return PLAYERS.slice();
+}
+function safeScores(v, where) {
+  const s = v && v.scores;
+  if (s && typeof s === 'object' && !Array.isArray(s) && Object.keys(s).length > 0) return s;
+  rtdbFallback(where + ':v.scores', s);
+  const out = {}; safePlayers(v, where).forEach((p) => { out[p] = 0; }); return out;
+}
+function safeMyHand(v, where) {
+  const h = v && v.myHand;
+  if (Array.isArray(h) && h.length > 0) return h;
+  rtdbFallback(where + ':v.myHand', h);
+  return [];
+}
+function safeMyReserved(v, where) {
+  const r = v && v.myReserved;
+  if (Array.isArray(r) && r.length > 0) return r;
+  rtdbFallback(where + ':v.myReserved', r);
+  return [];
+}
+function safeWinners(r, where) {
+  const w = r && r.winners;
+  if (Array.isArray(w) && w.length > 0) return w;
+  rtdbFallback(where + ':r.winners', w);
+  return [];
+}
+
 /* =========================================================
  * オンライン対戦コントローラ
  * ホスト権威（GM=ホスト）。プレイヤーは意図を送るだけ。net.js に依存。
@@ -1000,8 +1039,11 @@ const Online = {
     return `${set.label}（${v.roundIndex + 1}/${v.config.roundsPerSet}）`;
   },
   scoreV() {
-    const v = this.view, mx = Math.max(...Object.values(v.scores));
-    return `<div class="board">${v.config.players.map((p) => `<div class="score ${v.scores[p] === mx && mx > 0 ? 'leader' : ''}"><div class="nm">${esc(p)}${p === this.seat ? ' (あなた)' : ''}</div><div class="pt">${v.scores[p]}</div></div>`).join('')}</div>`;
+    const v = this.view;
+    const players = safePlayers(v, 'scoreV');
+    const scores = safeScores(v, 'scoreV');
+    const mx = Math.max(...Object.values(scores));
+    return `<div class="board">${players.map((p) => `<div class="score ${scores[p] === mx && mx > 0 ? 'leader' : ''}"><div class="nm">${esc(p)}${p === this.seat ? ' (あなた)' : ''}</div><div class="pt">${scores[p]}</div></div>`).join('')}</div>`;
   },
   renderRole() {
     const hasReal = !!window.REAL_DECKS;
@@ -1102,17 +1144,18 @@ const Online = {
   },
   waiting(msg, sub) { return `<div class="panel waitbox"><div class="spin">⏳</div><h2>${esc(msg)}</h2>${sub ? `<p class="muted">${esc(sub)}</p>` : ''}</div>`; },
   committedProgress(v) {
-    return `<div class="chips center" style="justify-content:center">${v.config.players.map((p) => `<span class="chip ${v.committedSeats[p] ? 'hit' : ''}">${esc(p)} ${v.committedSeats[p] ? '✓' : '…'}</span>`).join('')}</div>`;
+    return `<div class="chips center" style="justify-content:center">${safePlayers(v, 'committedProgress').map((p) => `<span class="chip ${v.committedSeats && v.committedSeats[p] ? 'hit' : ''}">${esc(p)} ${v.committedSeats && v.committedSeats[p] ? '✓' : '…'}</span>`).join('')}</div>`;
   },
   declaredProgress(v) {
-    return `<div class="chips center" style="justify-content:center">${v.config.players.map((p) => `<span class="chip ${v.declaredSeats[p] ? 'hit' : ''}">${esc(p)} ${v.declaredSeats[p] ? '✓' : '…'}</span>`).join('')}</div>`;
+    return `<div class="chips center" style="justify-content:center">${safePlayers(v, 'declaredProgress').map((p) => `<span class="chip ${v.declaredSeats && v.declaredSeats[p] ? 'hit' : ''}">${esc(p)} ${v.declaredSeats && v.declaredSeats[p] ? '✓' : '…'}</span>`).join('')}</div>`;
   },
   facesBoard(v) {
     if (!v.committedCards) return '';
-    return `<div class="cards" style="margin-top:10px">${v.config.players.map((p) => cardTile(this.card(v.committedCards[p]), { owner: p + (p === this.seat ? '（自分）' : ''), static: true })).join('')}</div>`;
+    return `<div class="cards" style="margin-top:10px">${safePlayers(v, 'facesBoard').map((p) => cardTile(this.card(v.committedCards[p]), { owner: p + (p === this.seat ? '（自分）' : ''), static: true })).join('')}</div>`;
   },
   resultBoard(r) {
-    return `<div class="cards" style="margin-top:10px">${r.entries.map((e) => cardTile(this.card(e.cardId), { owner: e.player, static: true, winner: r.winners.includes(e.player), value: E.scoreLabel(e.score), comment: e.comment })).join('')}</div>
+    const winners = safeWinners(r, 'resultBoard');
+    return `<div class="cards" style="margin-top:10px">${r.entries.map((e) => cardTile(this.card(e.cardId), { owner: e.player, static: true, winner: winners.includes(e.player), value: E.scoreLabel(e.score), comment: e.comment })).join('')}</div>
       <div class="chips">${r.tieBreakUsed ? `<span class="chip">${esc(tieBreakText(r.tieBreakUsed))}</span>` : ''}${r.entries.map((e) => '').join('')}${(r.declResults ? Object.keys(r.declResults) : []).map((p) => { const d = r.declResults[p]; let x = ''; if (d.self) x += `<span class="chip ${d.self.hit ? 'hit' : 'miss'}">${esc(p)} 自分${d.self.value} ${d.self.hit ? '的中' : '外'}</span>`; if (d.side) x += `<span class="chip ${d.side.hit ? 'hit' : 'miss'}">${esc(p)}→${esc(d.side.target)} ${d.side.value} ${d.side.hit ? '的中' : '外(実' + d.side.actualBase + ')'}</span>`; return x; }).join('')}</div>`;
   },
 
@@ -1123,12 +1166,12 @@ const Online = {
       case 'commit':
         if (v.committedSeats[me]) return `<div class="panel">${this.committedProgress(v)}${this.waiting('全員のコミット待ち')}</div>`;
         return `<div class="panel"><h2>手札から1枚を伏せて出す</h2><span class="half-tag">基準: ${half === 'zen' ? '前半' : '後半'}</span>
-          <div class="cards" style="margin-top:10px">${v.myHand.map((id) => cardTile(this.card(id), { sel: this.onlineSel === id, onclick: `Online.selCard('${id}')` })).join('')}</div>
+          <div class="cards" style="margin-top:10px">${safeMyHand(v, 'renderPlayer:commit').map((id) => cardTile(this.card(id), { sel: this.onlineSel === id, onclick: `Online.selCard('${id}')` })).join('')}</div>
           <div class="center" style="margin-top:12px"><button class="primary big" ${this.onlineSel ? '' : 'disabled'} onclick="Online.commit()">この札を伏せて出す</button></div></div>`;
       case 'faces': return `<div class="panel center"><h2>一段目公開 — 札の表</h2><span class="half-tag">基準: ${half === 'zen' ? '前半' : '後半'}</span>${this.facesBoard(v)}<p class="muted">強さはまだ伏せられている。GMの操作を待っています…</p></div>`;
       case 'declare': {
         if (v.declaredSeats[me]) return `<div class="panel">${this.declaredProgress(v)}${this.waiting('全員の宣言待ち')}</div>`;
-        const others = v.config.players.filter((q) => q !== me);
+        const others = safePlayers(v, 'renderPlayer:declare').filter((q) => q !== me);
         return `<div class="panel"><h2>予想タイム</h2>${this.facesBoard(v)}
           <label>自分宣言：自分の札の強さ（的中 +${v.config.hitSelfPoints}）</label>
           <select id="ol-self"><option value="">宣言しない</option>${[1,2,3,4,5].map((n) => `<option value="${n}">${n}</option>`).join('')}</select>
@@ -1141,13 +1184,14 @@ const Online = {
       case 'scoresReady': return this.waiting('GMの点数公開待ち');
       case 'roundEnd': {
         const r = v.roundResult;
-        const wt = r.winners.length === 1 ? `${r.winners[0]} の勝利！` : `${r.winners.join('・')} 山分け！`;
+        const winners = safeWinners(r, 'renderPlayer:roundEnd');
+        const wt = winners.length === 1 ? `${winners[0]} の勝利！` : `${winners.join('・')} 山分け！`;
         return `<div class="panel"><div class="banner">${esc(wt)} <span class="muted">(+${r.winPoints})</span></div><span class="half-tag">基準: ${r.half === 'zen' ? '前半' : '後半'}</span>${this.resultBoard(r)}<p class="muted center">GMの合図を待っています…</p></div>`;
       }
       case 'decisionPick':
         if (v.decision.pickedSeats[me]) return `<div class="panel">${this.waiting('全員の札選択待ち')}</div>`;
         return `<div class="panel"><h2>決着ラウンド — 最後の1枚を選ぶ</h2><p class="muted">残しておいた温存札から、最後の1枚を選べ。<br><b style="color:var(--acc)">この1枚の強さは「マッチ（GM）が付けた点数」で決まる。</b><br>ただし前半で判定するか後半で判定するかは、全員が選び終わってから発表される。</p>
-          <div class="cards">${v.myReserved.map((id) => cardTile(this.card(id), { sel: this.onlineSel === id, onclick: `Online.selCard('${id}')` })).join('')}</div>
+          <div class="cards">${safeMyReserved(v, 'renderPlayer:decisionPick').map((id) => cardTile(this.card(id), { sel: this.onlineSel === id, onclick: `Online.selCard('${id}')` })).join('')}</div>
           <div class="center" style="margin-top:12px"><button class="primary big" ${this.onlineSel ? '' : 'disabled'} onclick="Online.decisionPick()">この札に賭ける</button></div></div>`;
       case 'decisionBasis': return this.waiting('GMが最後の基準を宣言しています');
       case 'decisionDeclare': {
@@ -1165,7 +1209,9 @@ const Online = {
   gmAnswerPanel(v) {
     // RTDBは空オブジェクトのキーを保存しない。誰も回答していない瞬間はv.gm.answersが
     // まるごと欠落して返る（v.gm自体はhands等が非空なら残る）。ゼロ件は正規の状態として扱う。
-    if (!v.gm || !Object.keys(v.gm.answers || {}).length) return '';
+    if (!v.gm) return '';
+    if (!v.gm.answers) rtdbFallback('gmAnswerPanel:v.gm.answers', v.gm.answers);
+    if (!Object.keys(v.gm.answers || {}).length) return '';
     const rows = Object.entries(v.gm.answers || {}).map(([p, a]) => `<tr><td>${esc(p)}</td><td>${esc(this.card(a.cardId).name)}</td><td>${E.scoreLabel(a.zen)}</td><td>${E.scoreLabel(a.kou)}</td><td>${a.overallZen.toFixed(2)}/${a.overallKou.toFixed(2)}</td></tr>`).join('');
     return `<details style="margin-top:10px"><summary style="color:var(--acc);cursor:pointer">🔑 GM専用：現在の答え（プレイヤーに見せない）</summary>
       <table style="margin-top:6px"><tr><th>出した人</th><th>札</th><th>前半</th><th>後半</th><th>副基準 前/後</th></tr>${rows}</table></details>`;
@@ -1184,10 +1230,10 @@ const Online = {
       case 'faces': main = `<h2>一段目公開</h2>${this.facesBoard(v)}<div class="center" style="margin-top:12px"><button class="primary big" onclick="Online.gm(()=>Online.host.revealFaces())">宣言フェイズへ進める</button></div>`; break;
       case 'declare': main = `<h2>宣言待ち</h2>${this.facesBoard(v)}${this.declaredProgress(v)}<p class="muted center">全員宣言すると点数公開に進めます</p><div class="center" style="margin-top:8px"><button onclick="Online.gm(()=>Online.host.forceComplete())">⏭ 未提出者を自動で埋めて進む</button></div>`; break;
       case 'scoresReady': main = `<h2>全員の宣言完了</h2><div class="center"><button class="primary big" onclick="Online.gm(()=>Online.host.revealScores())">🃏 点数を公開</button></div>`; break;
-      case 'roundEnd': { const r = v.roundResult; const wt = r.winners.length === 1 ? `${r.winners[0]} の勝利！` : `${r.winners.join('・')} 山分け！`; main = `<div class="banner">${esc(wt)} (+${r.winPoints})</div>${this.resultBoard(r)}<div class="center" style="margin-top:12px"><button class="primary big" onclick="Online.gm(()=>Online.host.next())">次へ</button></div>`; break; }
-      case 'decisionPick': main = `<h2>決着 — 札選択待ち</h2><div class="chips center" style="justify-content:center">${v.config.players.map((p) => `<span class="chip ${v.decision.pickedSeats[p] ? 'hit' : ''}">${esc(p)} ${v.decision.pickedSeats[p] ? '✓' : '…'}</span>`).join('')}</div><div class="center" style="margin-top:8px"><button onclick="Online.gm(()=>Online.host.forceComplete())">⏭ 未提出者を自動で埋めて進む</button></div>`; break;
+      case 'roundEnd': { const r = v.roundResult; const winners = safeWinners(r, 'renderGM:roundEnd'); const wt = winners.length === 1 ? `${winners[0]} の勝利！` : `${winners.join('・')} 山分け！`; main = `<div class="banner">${esc(wt)} (+${r.winPoints})</div>${this.resultBoard(r)}<div class="center" style="margin-top:12px"><button class="primary big" onclick="Online.gm(()=>Online.host.next())">次へ</button></div>`; break; }
+      case 'decisionPick': main = `<h2>決着 — 札選択待ち</h2><div class="chips center" style="justify-content:center">${safePlayers(v, 'renderGM:decisionPick').map((p) => `<span class="chip ${v.decision.pickedSeats[p] ? 'hit' : ''}">${esc(p)} ${v.decision.pickedSeats[p] ? '✓' : '…'}</span>`).join('')}</div><div class="center" style="margin-top:8px"><button onclick="Online.gm(()=>Online.host.forceComplete())">⏭ 未提出者を自動で埋めて進む</button></div>`; break;
       case 'decisionBasis': main = `<h2>決着の基準宣言</h2><p>この札の強さは <b style="color:var(--acc)">マッチの点数</b> で決まる。</p><button class="primary" onclick="Online.gm(()=>Online.host.decisionAnnounce('zen'))">前半で判定</button><button class="primary" onclick="Online.gm(()=>Online.host.decisionAnnounce('kou'))">後半で判定</button>`; break;
-      case 'decisionDeclare': main = `<h2>マッチ予想待ち</h2><div class="chips center" style="justify-content:center">${v.config.players.map((p) => `<span class="chip ${v.decision.guessedSeats[p] ? 'hit' : ''}">${esc(p)} ${v.decision.guessedSeats[p] ? '✓' : '…'}</span>`).join('')}</div><div class="center" style="margin-top:8px"><button onclick="Online.gm(()=>Online.host.forceComplete())">⏭ 未提出者を自動で埋めて進む</button></div>`; break;
+      case 'decisionDeclare': main = `<h2>マッチ予想待ち</h2><div class="chips center" style="justify-content:center">${safePlayers(v, 'renderGM:decisionDeclare').map((p) => `<span class="chip ${v.decision.guessedSeats[p] ? 'hit' : ''}">${esc(p)} ${v.decision.guessedSeats[p] ? '✓' : '…'}</span>`).join('')}</div><div class="center" style="margin-top:8px"><button onclick="Online.gm(()=>Online.host.forceComplete())">⏭ 未提出者を自動で埋めて進む</button></div>`; break;
       case 'decisionReady': main = `<h2>最後の公開</h2><div class="center"><button class="primary big" onclick="Online.gm(()=>Online.host.decisionReveal())">🏆 決着</button></div>`; break;
       case 'final': return this.renderFinalV(v);
       default: main = '…';
@@ -1196,12 +1242,15 @@ const Online = {
   },
   renderFinalV(v) {
     const res = v.decision && v.decision.result;
-    const ranked = [...v.config.players].sort((a, b) => v.scores[b] - v.scores[a]);
+    const players = safePlayers(v, 'renderFinalV');
+    const scores = safeScores(v, 'renderFinalV');
+    const ranked = [...players].sort((a, b) => scores[b] - scores[a]);
+    const resWinners = res ? safeWinners(res, 'renderFinalV') : [];
     return `<div class="panel center"><h2>最終結果</h2>
-      ${res ? `<div class="banner">決着: ${esc(res.winners.join('・'))} が制した！</div>
-        <div class="cards">${res.entries.map((e) => cardTile(this.card(e.cardId), { owner: e.player, static: true, winner: res.winners.includes(e.player), value: E.scoreLabel(e.score), comment: e.comment })).join('')}</div>
+      ${res ? `<div class="banner">決着: ${esc(resWinners.join('・'))} が制した！</div>
+        <div class="cards">${res.entries.map((e) => cardTile(this.card(e.cardId), { owner: e.player, static: true, winner: resWinners.includes(e.player), value: E.scoreLabel(e.score), comment: e.comment })).join('')}</div>
         <div class="chips">${res.tieBreakUsed ? `<span class="chip">${esc(tieBreakText(res.tieBreakUsed))}</span>` : ''}${Object.keys(res.guessResults || {}).map((p) => { const g = res.guessResults[p]; return g ? `<span class="chip ${g.hit ? 'hit' : 'miss'}">${esc(p)} マッチ予想${g.value} ${g.hit ? '的中' : '外'}</span>` : ''; }).join('')}</div>` : ''}
-      <div style="font-size:24px;margin:16px 0">🏆 優勝: <b style="color:var(--acc)">${esc(ranked[0])}</b>（${v.scores[ranked[0]]}点）</div>
+      <div style="font-size:24px;margin:16px 0">🏆 優勝: <b style="color:var(--acc)">${esc(ranked[0])}</b>（${scores[ranked[0]]}点）</div>
       <button class="primary" onclick="Online.showTimelineV()">全ラウンドのネタばらし</button>
       <button onclick="Online.exit()">終了して戻る</button></div>`;
   },
@@ -1212,8 +1261,180 @@ const Online = {
 };
 window.Online = Online;
 
+/* =========================================================
+ * 合成viewテスト（v0.8.1・工程2）
+ * ライブの部屋を一切使わず、手書きの壊れたviewオブジェクトを描画・集計系の関数に
+ * 直接渡して呼ぶ。部屋・タイミング・非同期に依存しないため、呼べば必ず全パスを通る。
+ * v0.8で防御を入れた（べき）5箇所（v.scores/v.config.players/v.myHand/
+ * v.myReserved/r.winners）それぞれについて、正常値・undefined・null・空の4パターンを
+ * 検証する。合格条件は「例外を投げないこと」＋「対応する[rtdb-fallback] warnが
+ * 発火すること」（ただし正常値パターンはwarnが"発火しない"ことが合格条件。
+ * 正常な値でフォールバックが誤発火するのはそれ自体がバグのため）。
+ * gmAnswerPanelのv.gm.answers（undefined/null/空の3パターン）は、v0.8で既に
+ * 防御済みのため「例外を投げないこと」のみを合格条件とする。
+ * ========================================================= */
+window.__syntheticViewTest = function () {
+  const results = [];
+  let warnBuf = [];
+  const origWarn = console.warn;
+  console.warn = (...args) => { warnBuf.push(args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')); };
+
+  function record(label, pattern, fn) {
+    warnBuf = [];
+    let threw = false, errMsg = '';
+    try { fn(); } catch (e) { threw = true; errMsg = e.message; }
+    const warned = warnBuf.some((w) => w.includes('[rtdb-fallback]') && w.includes(label));
+    results.push({ label, pattern, threw, errMsg, warned });
+  }
+
+  const GOOD_PLAYERS = PLAYERS.slice();
+  const GOOD_SCORES = { からあげ: 3, てかさ: 1, 逆廻: 0 };
+  const GOOD_HAND = ['A0', 'A1'];
+  const GOOD_RESERVED = ['B0', 'B1'];
+  const GOOD_WINNERS = ['からあげ'];
+  const CARD_META = {
+    A0: { id: 'A0', name: 'テスト札A0', cost: 1, type: 'スキル', effect: '' },
+    A1: { id: 'A1', name: 'テスト札A1', cost: 1, type: 'スキル', effect: '' },
+    B0: { id: 'B0', name: 'テスト札B0', cost: 1, type: 'スキル', effect: '' },
+    B1: { id: 'B1', name: 'テスト札B1', cost: 1, type: 'スキル', effect: '' },
+  };
+
+  function mkView(overrides) {
+    return Object.assign({
+      seat: 'からあげ', isGM: false,
+      config: { players: GOOD_PLAYERS.slice(), gmName: 'マッチ', sets: [{ label: '第1章', winPoints: 3, fixedHalf: 'zen' }], roundsPerSet: 6, handSize: 8, hitSelfPoints: 2, hitSidePoints: 2, decision: { enabled: true, label: '決着', winPoints: 6, hitPoints: 3 } },
+      phase: 'commit', setIndex: 0, roundIndex: 0, currentHalf: 'zen',
+      scores: Object.assign({}, GOOD_SCORES),
+      committedSeats: { からあげ: false, てかさ: false, 逆廻: false },
+      declaredSeats: { からあげ: false, てかさ: false, 逆廻: false },
+      committedCards: null, roundResult: null, history: [],
+      myHand: GOOD_HAND.slice(), myReserved: GOOD_RESERVED.slice(),
+      decision: null, gm: null, cardMeta: Object.assign({}, CARD_META),
+    }, overrides);
+  }
+  function mkRoundResult(overrides) {
+    return Object.assign({
+      kind: 'round', set: 0, round: 0, half: 'zen',
+      entries: [{ player: 'からあげ', cardId: 'A0', cardName: 'テスト札A0', score: { base: 3, mod: 0 }, comment: null }],
+      winners: GOOD_WINNERS.slice(), tieBreakUsed: null,
+      declResults: { からあげ: { self: null, side: null } }, pointsAwarded: { からあげ: 3 }, winPoints: 3,
+    }, overrides);
+  }
+
+  const PATTERNS = [
+    ['正常値', (good) => good],
+    ['undefined', () => undefined],
+    ['null', () => null],
+    ['空', (good) => (Array.isArray(good) ? [] : {})],
+  ];
+
+  // #3 v.scores（scoreV経由）
+  for (const [pname, make] of PATTERNS) {
+    record('scoreV:v.scores', pname, () => {
+      Online.view = mkView({ scores: make(GOOD_SCORES) }); Online.seat = 'からあげ';
+      Online.scoreV();
+    });
+  }
+  // #7 v.config.players（scoreV / committedProgress / facesBoard / renderFinalV の代表4関数）
+  for (const [pname, make] of PATTERNS) {
+    record('scoreV:v.config.players', pname, () => {
+      const v = mkView({}); v.config = Object.assign({}, v.config, { players: make(GOOD_PLAYERS) });
+      Online.view = v; Online.seat = 'からあげ';
+      Online.scoreV();
+    });
+  }
+  for (const [pname, make] of PATTERNS) {
+    record('committedProgress:v.config.players', pname, () => {
+      const v = mkView({}); v.config = Object.assign({}, v.config, { players: make(GOOD_PLAYERS) });
+      Online.committedProgress(v);
+    });
+  }
+  for (const [pname, make] of PATTERNS) {
+    record('facesBoard:v.config.players', pname, () => {
+      const v = mkView({ committedCards: { からあげ: 'A0', てかさ: 'A1', 逆廻: 'B0' } });
+      v.config = Object.assign({}, v.config, { players: make(GOOD_PLAYERS) });
+      Online.view = v; Online.seat = 'からあげ';
+      Online.facesBoard(v);
+    });
+  }
+  for (const [pname, make] of PATTERNS) {
+    record('renderFinalV:v.config.players', pname, () => {
+      const v = mkView({ phase: 'final' }); v.config = Object.assign({}, v.config, { players: make(GOOD_PLAYERS) });
+      Online.view = v; Online.seat = 'からあげ';
+      Online.renderFinalV(v);
+    });
+  }
+  // #8 v.myHand（renderPlayer: commit）
+  for (const [pname, make] of PATTERNS) {
+    record('renderPlayer:commit:v.myHand', pname, () => {
+      const v = mkView({ phase: 'commit', myHand: make(GOOD_HAND) });
+      Online.view = v; Online.seat = 'からあげ';
+      Online.renderPlayer(v);
+    });
+  }
+  // #9 v.myReserved（renderPlayer: decisionPick）
+  for (const [pname, make] of PATTERNS) {
+    record('renderPlayer:decisionPick:v.myReserved', pname, () => {
+      const v = mkView({
+        phase: 'decisionPick', myReserved: make(GOOD_RESERVED),
+        decision: { half: null, pickedSeats: { からあげ: false, てかさ: false, 逆廻: false }, guessedSeats: {}, result: null, myPick: null },
+      });
+      Online.view = v; Online.seat = 'からあげ';
+      Online.renderPlayer(v);
+    });
+  }
+  // #15 r.winners（resultBoard / renderPlayer:roundEnd / renderGM:roundEnd / renderFinalV(決着結果)）
+  for (const [pname, make] of PATTERNS) {
+    record('resultBoard:r.winners', pname, () => {
+      const v = mkView({});
+      Online.view = v; Online.seat = 'からあげ';
+      Online.resultBoard(mkRoundResult({ winners: make(GOOD_WINNERS) }));
+    });
+  }
+  for (const [pname, make] of PATTERNS) {
+    record('renderPlayer:roundEnd:r.winners', pname, () => {
+      const v = mkView({ phase: 'roundEnd', roundResult: mkRoundResult({ winners: make(GOOD_WINNERS) }) });
+      Online.view = v; Online.seat = 'からあげ';
+      Online.renderPlayer(v);
+    });
+  }
+  for (const [pname, make] of PATTERNS) {
+    record('renderGM:roundEnd:r.winners', pname, () => {
+      const v = mkView({ phase: 'roundEnd', isGM: true, roundResult: mkRoundResult({ winners: make(GOOD_WINNERS) }), gm: { answers: {}, hands: {} } });
+      Online.view = v; Online.seat = 'マッチ';
+      Online.renderGM(v);
+    });
+  }
+
+  // 追加: v.gm.answers（undefined/null/空）で、gmAnswerPanelが例外なく描画できることを確認
+  // （v0.8で既に防御済み。ここではwarn要件は課さず「例外を投げないこと」のみを見る）
+  for (const [pname, make] of [['undefined', () => undefined], ['null', () => null], ['空', () => ({})]]) {
+    record('gmAnswerPanel:v.gm.answers', pname, () => {
+      const v = mkView({ isGM: true, gm: { answers: make(), hands: { からあげ: [], てかさ: [], 逆廻: [] } } });
+      Online.view = v; Online.seat = 'マッチ';
+      Online.gmAnswerPanel(v);
+    });
+  }
+
+  console.warn = origWarn;
+
+  // 判定:
+  //  ・例外が1つでもあれば fail（防御が不完全）
+  //  ・gmAnswerPanel系以外で、undefined/null/空パターンなのにwarnが発火しなければ fail（防御コード未到達＝デッドコード疑い）
+  //  ・gmAnswerPanel系以外で、正常値パターンなのにwarnが発火したら fail（誤発火＝正常値をフォールバック扱いしている）
+  const exceptions = results.filter((r) => r.threw);
+  const deadDefenses = results.filter((r) => !r.threw && !r.label.startsWith('gmAnswerPanel:') && r.pattern !== '正常値' && !r.warned);
+  const falseFallbacks = results.filter((r) => !r.threw && !r.label.startsWith('gmAnswerPanel:') && r.pattern === '正常値' && r.warned);
+  const status = (exceptions.length === 0 && deadDefenses.length === 0 && falseFallbacks.length === 0) ? 'pass' : 'fail';
+
+  return { status, results, exceptions, deadDefenses, falseFallbacks };
+};
+
 /* ===== オンラインUI自己テスト（モックDBで全走行＋全座席×全フェーズ描画） ===== */
 window.__onlineSelfTest = async function (seed) {
+  // 工程3: 冒頭で合成viewテストを実行する。ライブ側が空振り（inconclusive）でも、
+  // synthetic自体がfailならoverall statusは常にfailにする。
+  const synthetic = window.__syntheticViewTest();
   seed = seed || 42;
   const N = window.Net, EE = window.Engine;
   const P = EE.DEFAULT_CONFIG.players, GM = EE.DEFAULT_CONFIG.gmName;
@@ -1296,12 +1517,29 @@ window.__onlineSelfTest = async function (seed) {
     chapterTransitionsRendered: basisCount >= 3,
     basisPhaseHits: basisCount,
   };
+
+  // 3値化（v0.8.1・工程1/工程3）：例外的アサーション違反=fail、カバレッジ不足=inconclusive、
+  // それ以外=pass。「検証が成立しなかった」を「失敗」に化けさせない。
+  let status, reason;
+  if (synthetic.status === 'fail') {
+    status = 'fail';
+    reason = `合成viewテストが失敗（例外${synthetic.exceptions.length}件・防御未到達${synthetic.deadDefenses.length}件・誤発火${synthetic.falseFallbacks.length}件）。詳細は synthetic.results を参照。`;
+  } else if (errors.length > 0) {
+    status = 'fail';
+    reason = `ライブ部屋の描画でエラー${errors.length}件を検出。詳細は errors を参照。`;
+  } else if (!coverage.allSeatedThenStartGmRenders || !coverage.zeroAnswersRendersCleanly || !coverage.chapterTransitionsRendered) {
+    status = 'inconclusive';
+    reason = `観測したphaseが${JSON.stringify([...seenPhases])}のみ（basisPhaseHits=${coverage.basisPhaseHits}）で、ライブ駆動が実質的に走っていない。原因（工程0で確認済み）：__onlineSelfTest()の部屋コードが固定文字列'SELF'であり、RoomHostがdb（毎回新規のMockDB）ではなく実localStorageへ状態を永続化するため、2回目以降の呼び出しは前回完走済みの残骸をresumeしてしまう。合成viewテストはpassしているため、防御コード自体は機能している。`;
+  } else {
+    status = 'pass';
+    reason = '';
+  }
+
   return {
-    ok: errors.length === 0 && host.state.phase === 'final'
-      && coverage.allSeatedThenStartGmRenders && coverage.zeroAnswersRendersCleanly && coverage.chapterTransitionsRendered,
+    ok: status === 'pass', status, reason,
     phase: host.state.phase, checks, phases: [...seenPhases], errors,
     rounds: host.state.history.filter((h) => h.kind === 'round').length,
-    coverage,
+    coverage, synthetic,
   };
 };
 

@@ -140,5 +140,35 @@ console.log('render()停止バグの再発防止（v2指示書対応）:');
   ok(/coverage/.test(selfTestBody), '__onlineSelfTest がカバレッジ情報(coverage)を返すこと');
 }
 
+console.log('合成viewテストと自己診断の3値化（v0.8.1指示書対応）:');
+{
+  // rtdbFallback機構と5箇所への適用（#3 v.scores / #7 v.config.players / #8 v.myHand / #9 v.myReserved / #15 r.winners）
+  ok(/function rtdbFallback\(/.test(uiSrc), 'rtdbFallback() が定義されていること');
+  ok(/function safeScores\(/.test(uiSrc), 'safeScores()（#3 v.scores防御）が定義されていること');
+  ok(/function safePlayers\(/.test(uiSrc), 'safePlayers()（#7 v.config.players防御）が定義されていること');
+  ok(/function safeMyHand\(/.test(uiSrc), 'safeMyHand()（#8 v.myHand防御）が定義されていること');
+  ok(/function safeMyReserved\(/.test(uiSrc), 'safeMyReserved()（#9 v.myReserved防御）が定義されていること');
+  ok(/function safeWinners\(/.test(uiSrc), 'safeWinners()（#15 r.winners防御）が定義されていること');
+
+  // __syntheticViewTest: 存在し、5箇所すべてを最低4パターンで検証していること
+  ok(/window\.__syntheticViewTest = function/.test(uiSrc), '__syntheticViewTest() が定義されていること');
+  const synthIdx = uiSrc.indexOf('window.__syntheticViewTest = function');
+  const onlineSelfIdx2 = uiSrc.indexOf('window.__onlineSelfTest = async function');
+  const synthBody = (synthIdx >= 0 && onlineSelfIdx2 > synthIdx) ? uiSrc.slice(synthIdx, onlineSelfIdx2) : '';
+  ok(synthBody.length > 0, '__syntheticViewTest() の本体を抽出できること');
+  for (const label of ["scoreV:v.scores", "scoreV:v.config.players", "committedProgress:v.config.players", "facesBoard:v.config.players", "renderFinalV:v.config.players", "renderPlayer:commit:v.myHand", "renderPlayer:decisionPick:v.myReserved", "resultBoard:r.winners", "renderPlayer:roundEnd:r.winners", "renderGM:roundEnd:r.winners", "gmAnswerPanel:v.gm.answers"]) {
+    ok(synthBody.includes(label), `__syntheticViewTest() が "${label}" を検証していること`);
+  }
+  ok(/PATTERNS = \[/.test(synthBody) && /正常値/.test(synthBody) && /undefined/.test(synthBody) && /null/.test(synthBody), '正常値/undefined/null/空の4パターンが定義されていること');
+
+  // __onlineSelfTest: status(pass/fail/inconclusive)・reasonを返し、冒頭でsyntheticを呼ぶこと
+  const selfTestIdx2 = uiSrc.indexOf('window.__onlineSelfTest = async function');
+  const selfTestBody2 = selfTestIdx2 >= 0 ? uiSrc.slice(selfTestIdx2, selfTestIdx2 + 8000) : '';
+  ok(/__syntheticViewTest\(\)/.test(selfTestBody2), '__onlineSelfTest() が冒頭で __syntheticViewTest() を呼ぶこと');
+  ok(/'pass'/.test(selfTestBody2) && /'fail'/.test(selfTestBody2) && /'inconclusive'/.test(selfTestBody2), "__onlineSelfTest() が status に 'pass'/'fail'/'inconclusive' の3値を使うこと");
+  ok(/reason/.test(selfTestBody2), '__onlineSelfTest() が reason フィールドを返すこと');
+  ok(/ok: status === 'pass'/.test(selfTestBody2), 'ok が status===\'pass\'と等価に定義されていること（後方互換）');
+}
+
 console.log(`\n==== static結果: ${passed} passed, ${failed} failed ====`);
 process.exit(failed ? 1 : 0);
