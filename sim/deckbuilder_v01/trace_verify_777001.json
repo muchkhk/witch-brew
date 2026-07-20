@@ -1,0 +1,1194 @@
+{
+ "seed": 777001,
+ "seats": [
+  "S1",
+  "S3",
+  "S3"
+ ],
+ "turns": [
+  {
+   "turn": 1,
+   "seat": 0,
+   "sid": "S1",
+   "handBefore": [
+    "専門家",
+    "専門家",
+    "見習い"
+   ],
+   "infBefore": [
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "marketBefore": [
+    "挑戦者",
+    "連携役",
+    "調停者",
+    "戦略家",
+    "長老"
+   ],
+   "s3Priority": null,
+   "playIdx": 2,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 1
+  },
+  {
+   "turn": 1,
+   "seat": 1,
+   "sid": "S3",
+   "handBefore": [
+    "専門家",
+    "古参",
+    "見習い"
+   ],
+   "infBefore": [
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "marketBefore": [
+    "挑戦者",
+    "調停者",
+    "戦略家",
+    "長老",
+    "長老"
+   ],
+   "s3Priority": [
+    0,
+    2
+   ],
+   "playIdx": 2,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 1
+  },
+  {
+   "turn": 1,
+   "seat": 2,
+   "sid": "S3",
+   "handBefore": [
+    "専門家",
+    "専門家",
+    "見習い"
+   ],
+   "infBefore": [
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "marketBefore": [
+    "挑戦者",
+    "戦略家",
+    "長老",
+    "長老",
+    "親方"
+   ],
+   "s3Priority": [
+    1,
+    2
+   ],
+   "playIdx": 2,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 0
+  },
+  {
+   "turn": 2,
+   "seat": 0,
+   "sid": "S1",
+   "handBefore": [
+    "古参",
+    "開拓者",
+    "見習い"
+   ],
+   "infBefore": [
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     0,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     1
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "長老",
+    "長老",
+    "親方",
+    "追随者"
+   ],
+   "s3Priority": null,
+   "playIdx": 1,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 4
+  },
+  {
+   "turn": 2,
+   "seat": 1,
+   "sid": "S3",
+   "handBefore": [
+    "調整役",
+    "専門家",
+    "見習い"
+   ],
+   "infBefore": [
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     2,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     1
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "長老",
+    "長老",
+    "親方",
+    "戦略家"
+   ],
+   "s3Priority": [
+    0,
+    2
+   ],
+   "playIdx": 2,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 1
+  },
+  {
+   "turn": 2,
+   "seat": 2,
+   "sid": "S3",
+   "handBefore": [
+    "見習い",
+    "古参",
+    "調整役"
+   ],
+   "infBefore": [
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     2,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     1
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "長老",
+    "親方",
+    "戦略家",
+    "追随者"
+   ],
+   "s3Priority": [
+    1,
+    2
+   ],
+   "playIdx": 1,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 4
+  },
+  {
+   "turn": 3,
+   "seat": 0,
+   "sid": "S1",
+   "handBefore": [
+    "調整役",
+    "見習い",
+    "専門家"
+   ],
+   "infBefore": [
+    [
+     1,
+     1,
+     2
+    ],
+    [
+     2,
+     1,
+     0
+    ],
+    [
+     0,
+     0,
+     1
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "長老",
+    "親方",
+    "戦略家",
+    "戦略家"
+   ],
+   "s3Priority": null,
+   "playIdx": 1,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 2
+  },
+  {
+   "turn": 3,
+   "seat": 1,
+   "sid": "S3",
+   "handBefore": [
+    "開拓者",
+    "見習い",
+    "調整役"
+   ],
+   "infBefore": [
+    [
+     1,
+     1,
+     2
+    ],
+    [
+     2,
+     1,
+     0
+    ],
+    [
+     1,
+     0,
+     1
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "長老",
+    "戦略家",
+    "戦略家",
+    "連携役"
+   ],
+   "s3Priority": [
+    0,
+    2
+   ],
+   "playIdx": 0,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 4
+  },
+  {
+   "turn": 3,
+   "seat": 2,
+   "sid": "S3",
+   "handBefore": [
+    "開拓者",
+    "見習い",
+    "専門家"
+   ],
+   "infBefore": [
+    [
+     1,
+     1,
+     2
+    ],
+    [
+     2,
+     1,
+     0
+    ],
+    [
+     1,
+     2,
+     1
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "長老",
+    "戦略家",
+    "戦略家",
+    "連携役"
+   ],
+   "s3Priority": [
+    1,
+    2
+   ],
+   "playIdx": 0,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 4
+  },
+  {
+   "turn": 4,
+   "seat": 0,
+   "sid": "S1",
+   "handBefore": [
+    "連携役",
+    "見習い",
+    "専門家"
+   ],
+   "infBefore": [
+    [
+     1,
+     1,
+     2
+    ],
+    [
+     2,
+     1,
+     2
+    ],
+    [
+     1,
+     2,
+     1
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "長老",
+    "戦略家",
+    "戦略家",
+    "長老"
+   ],
+   "s3Priority": null,
+   "playIdx": 0,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 1
+  },
+  {
+   "turn": 4,
+   "seat": 1,
+   "sid": "S3",
+   "handBefore": [
+    "調停者",
+    "長老",
+    "古参"
+   ],
+   "infBefore": [
+    [
+     2,
+     1,
+     2
+    ],
+    [
+     2,
+     1,
+     2
+    ],
+    [
+     2,
+     2,
+     1
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "戦略家",
+    "戦略家",
+    "長老",
+    "追随者"
+   ],
+   "s3Priority": [
+    0,
+    2
+   ],
+   "playIdx": 2,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 4
+  },
+  {
+   "turn": 4,
+   "seat": 2,
+   "sid": "S3",
+   "handBefore": [
+    "専門家",
+    "追随者",
+    "調整役"
+   ],
+   "infBefore": [
+    [
+     2,
+     3,
+     2
+    ],
+    [
+     2,
+     1,
+     2
+    ],
+    [
+     2,
+     2,
+     1
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "戦略家",
+    "戦略家",
+    "長老",
+    "挑戦者"
+   ],
+   "s3Priority": [
+    1,
+    2
+   ],
+   "playIdx": 1,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 4
+  },
+  {
+   "turn": 5,
+   "seat": 0,
+   "sid": "S1",
+   "handBefore": [
+    "古参",
+    "追随者",
+    "親方"
+   ],
+   "infBefore": [
+    [
+     2,
+     3,
+     2
+    ],
+    [
+     2,
+     1,
+     2
+    ],
+    [
+     2,
+     2,
+     4
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "戦略家",
+    "戦略家",
+    "長老",
+    "挑戦者"
+   ],
+   "s3Priority": null,
+   "playIdx": 0,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 4
+  },
+  {
+   "turn": 5,
+   "seat": 1,
+   "sid": "S3",
+   "handBefore": [
+    "専門家",
+    "専門家",
+    "調停者"
+   ],
+   "infBefore": [
+    [
+     4,
+     3,
+     2
+    ],
+    [
+     2,
+     1,
+     2
+    ],
+    [
+     2,
+     2,
+     4
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "戦略家",
+    "戦略家",
+    "長老",
+    "調停者"
+   ],
+   "s3Priority": [
+    0,
+    2
+   ],
+   "playIdx": 0,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 4
+  },
+  {
+   "turn": 5,
+   "seat": 2,
+   "sid": "S3",
+   "handBefore": [
+    "挑戦者",
+    "見習い",
+    "専門家"
+   ],
+   "infBefore": [
+    [
+     4,
+     3,
+     2
+    ],
+    [
+     2,
+     3,
+     2
+    ],
+    [
+     2,
+     2,
+     4
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "戦略家",
+    "戦略家",
+    "長老",
+    "名手"
+   ],
+   "s3Priority": [
+    1,
+    2
+   ],
+   "playIdx": 0,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 0
+  },
+  {
+   "turn": 6,
+   "seat": 0,
+   "sid": "S1",
+   "handBefore": [
+    "専門家",
+    "見習い",
+    "専門家"
+   ],
+   "infBefore": [
+    [
+     4,
+     3,
+     5
+    ],
+    [
+     2,
+     3,
+     2
+    ],
+    [
+     2,
+     2,
+     4
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "戦略家",
+    "長老",
+    "名手",
+    "親方"
+   ],
+   "s3Priority": null,
+   "playIdx": 0,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 3
+  },
+  {
+   "turn": 6,
+   "seat": 1,
+   "sid": "S3",
+   "handBefore": [
+    "長老",
+    "調整役",
+    "連携役"
+   ],
+   "infBefore": [
+    [
+     4,
+     3,
+     5
+    ],
+    [
+     4,
+     3,
+     2
+    ],
+    [
+     2,
+     2,
+     4
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "戦略家",
+    "長老",
+    "親方",
+    "名手"
+   ],
+   "s3Priority": [
+    0,
+    2
+   ],
+   "playIdx": 1,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 3
+  },
+  {
+   "turn": 6,
+   "seat": 2,
+   "sid": "S3",
+   "handBefore": [
+    "挑戦者",
+    "調整役",
+    "専門家"
+   ],
+   "infBefore": [
+    [
+     4,
+     2,
+     5
+    ],
+    [
+     4,
+     5,
+     2
+    ],
+    [
+     2,
+     2,
+     4
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "戦略家",
+    "長老",
+    "名手",
+    "親方"
+   ],
+   "s3Priority": [
+    1,
+    2
+   ],
+   "playIdx": 0,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 0
+  },
+  {
+   "turn": 7,
+   "seat": 0,
+   "sid": "S1",
+   "handBefore": [
+    "調整役",
+    "長老",
+    "追随者"
+   ],
+   "infBefore": [
+    [
+     4,
+     2,
+     5
+    ],
+    [
+     4,
+     5,
+     5
+    ],
+    [
+     2,
+     2,
+     4
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "長老",
+    "名手",
+    "親方",
+    "名手"
+   ],
+   "s3Priority": null,
+   "playIdx": 0,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 3
+  },
+  {
+   "turn": 7,
+   "seat": 1,
+   "sid": "S3",
+   "handBefore": [
+    "見習い",
+    "追随者",
+    "調停者"
+   ],
+   "infBefore": [
+    [
+     3,
+     2,
+     5
+    ],
+    [
+     6,
+     5,
+     5
+    ],
+    [
+     2,
+     2,
+     4
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "長老",
+    "名手",
+    "名手",
+    "調停者"
+   ],
+   "s3Priority": [
+    0,
+    2
+   ],
+   "playIdx": 1,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 4
+  },
+  {
+   "turn": 7,
+   "seat": 2,
+   "sid": "S3",
+   "handBefore": [
+    "連携役",
+    "見習い",
+    "専門家"
+   ],
+   "infBefore": [
+    [
+     3,
+     5,
+     5
+    ],
+    [
+     6,
+     5,
+     5
+    ],
+    [
+     2,
+     2,
+     4
+    ]
+   ],
+   "marketBefore": [
+    "戦略家",
+    "長老",
+    "名手",
+    "名手"
+   ],
+   "s3Priority": [
+    1,
+    2
+   ],
+   "playIdx": 0,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 0
+  },
+  {
+   "turn": 8,
+   "seat": 0,
+   "sid": "S1",
+   "handBefore": [
+    "挑戦者",
+    "名手",
+    "親方"
+   ],
+   "infBefore": [
+    [
+     3,
+     5,
+     6
+    ],
+    [
+     6,
+     5,
+     6
+    ],
+    [
+     2,
+     2,
+     4
+    ]
+   ],
+   "marketBefore": [
+    "長老",
+    "名手",
+    "名手"
+   ],
+   "s3Priority": null,
+   "playIdx": 2,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 1
+  },
+  {
+   "turn": 8,
+   "seat": 1,
+   "sid": "S3",
+   "handBefore": [
+    "親方",
+    "長老",
+    "調停者"
+   ],
+   "infBefore": [
+    [
+     6,
+     5,
+     6
+    ],
+    [
+     6,
+     5,
+     6
+    ],
+    [
+     2,
+     2,
+     4
+    ]
+   ],
+   "marketBefore": [
+    "長老",
+    "名手"
+   ],
+   "s3Priority": [
+    0,
+    2
+   ],
+   "playIdx": 2,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 1
+  },
+  {
+   "turn": 8,
+   "seat": 2,
+   "sid": "S3",
+   "handBefore": [
+    "専門家",
+    "戦略家",
+    "調整役"
+   ],
+   "infBefore": [
+    [
+     6,
+     7,
+     6
+    ],
+    [
+     6,
+     5,
+     6
+    ],
+    [
+     2,
+     2,
+     4
+    ]
+   ],
+   "marketBefore": [
+    "長老"
+   ],
+   "s3Priority": [
+    1,
+    2
+   ],
+   "playIdx": 0,
+   "canRetire": true,
+   "retireDecision": true,
+   "marketPickIdx": 0
+  },
+  {
+   "turn": 9,
+   "seat": 0,
+   "sid": "S1",
+   "handBefore": [
+    "専門家",
+    "見習い",
+    "名手"
+   ],
+   "infBefore": [
+    [
+     6,
+     7,
+     8
+    ],
+    [
+     6,
+     5,
+     6
+    ],
+    [
+     2,
+     2,
+     4
+    ]
+   ],
+   "marketBefore": [],
+   "s3Priority": null,
+   "playIdx": 0,
+   "canRetire": false,
+   "retireDecision": false,
+   "marketPickIdx": null
+  },
+  {
+   "turn": 9,
+   "seat": 1,
+   "sid": "S3",
+   "handBefore": [
+    "専門家",
+    "連携役",
+    "見習い"
+   ],
+   "infBefore": [
+    [
+     8,
+     7,
+     8
+    ],
+    [
+     6,
+     5,
+     6
+    ],
+    [
+     2,
+     2,
+     4
+    ]
+   ],
+   "marketBefore": [],
+   "s3Priority": [
+    0,
+    2
+   ],
+   "playIdx": 1,
+   "canRetire": false,
+   "retireDecision": false,
+   "marketPickIdx": null
+  },
+  {
+   "turn": 9,
+   "seat": 2,
+   "sid": "S3",
+   "handBefore": [
+    "見習い",
+    "戦略家",
+    "調整役"
+   ],
+   "infBefore": [
+    [
+     8,
+     8,
+     8
+    ],
+    [
+     6,
+     6,
+     6
+    ],
+    [
+     2,
+     2,
+     4
+    ]
+   ],
+   "marketBefore": [],
+   "s3Priority": [
+    1,
+    2
+   ],
+   "playIdx": 1,
+   "canRetire": false,
+   "retireDecision": false,
+   "marketPickIdx": null
+  },
+  {
+   "turn": 10,
+   "seat": 0,
+   "sid": "S1",
+   "handBefore": [
+    "挑戦者",
+    "名手",
+    "追随者"
+   ],
+   "infBefore": [
+    [
+     8,
+     8,
+     9
+    ],
+    [
+     6,
+     6,
+     7
+    ],
+    [
+     2,
+     2,
+     3
+    ]
+   ],
+   "marketBefore": [],
+   "s3Priority": null,
+   "playIdx": 1,
+   "canRetire": false,
+   "retireDecision": false,
+   "marketPickIdx": null
+  },
+  {
+   "turn": 10,
+   "seat": 1,
+   "sid": "S3",
+   "handBefore": [
+    "親方",
+    "調停者",
+    "長老"
+   ],
+   "infBefore": [
+    [
+     10,
+     8,
+     9
+    ],
+    [
+     7,
+     6,
+     7
+    ],
+    [
+     2,
+     2,
+     3
+    ]
+   ],
+   "marketBefore": [],
+   "s3Priority": [
+    0,
+    2
+   ],
+   "playIdx": 1,
+   "canRetire": false,
+   "retireDecision": false,
+   "marketPickIdx": null
+  },
+  {
+   "turn": 10,
+   "seat": 2,
+   "sid": "S3",
+   "handBefore": [
+    "戦略家",
+    "専門家",
+    "見習い"
+   ],
+   "infBefore": [
+    [
+     8,
+     9,
+     9
+    ],
+    [
+     7,
+     8,
+     7
+    ],
+    [
+     2,
+     2,
+     3
+    ]
+   ],
+   "marketBefore": [],
+   "s3Priority": [
+    1,
+    2
+   ],
+   "playIdx": 2,
+   "canRetire": false,
+   "retireDecision": false,
+   "marketPickIdx": null
+  }
+ ]
+}

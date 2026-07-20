@@ -1,0 +1,10 @@
+[F0] done in 72.1s  M1_med=0.1000 M1_mean=0.1104 M2=0.1507 M3=3.1763 eq_pre_mean=0.4985
+[F9] done in 4.3s  M1_med=0.5000 M1_mean=0.5000 M2=1.0000 M3=1.0000 eq_pre_mean=0.5000
+[F+] done in 65.1s  M1_med=0.1250 M1_mean=0.2252 M2=0.1015 M3=9.8996 eq_pre_mean=0.5012
+[FA] done in 73.3s  M1_med=0.0667 M1_mean=0.0980 M2=0.1099 M3=4.1686 eq_pre_mean=0.4995
+[FB] done in 74.8s  M1_med=0.1125 M1_mean=0.1804 M2=0.1609 M3=3.5770 eq_pre_mean=0.4995
+[FC1] done in 75.7s  M1_med=0.0750 M1_mean=0.1120 M2=0.1384 M3=3.0664 eq_pre_mean=0.4991
+[FC2] done in 77.5s  M1_med=0.0750 M1_mean=0.1037 M2=0.1196 M3=2.9681 eq_pre_mean=0.5034
+TOTAL elapsed: 442.9s
+wrote D:\ゲーム\ボドゲ\オリジナル用ローカル\original\sim\info_geometry_probe\results.csv
+wrote run_meta.json

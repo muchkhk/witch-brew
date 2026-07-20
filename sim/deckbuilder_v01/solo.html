@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>新作デッキ構築ゲーム ソロテスト版</title>
+<style>
+  :root{
+    --you:#2563eb; --npc1:#dc2626; --npc2:#16a34a;
+    --bg:#f5f6f8; --panel:#ffffff; --border:#d8dbe0; --text:#1f2430; --muted:#6b7280;
+    --areaA:#eef2ff; --areaB:#fef3e2; --areaC:#eafaf0;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:"Yu Gothic","Hiragino Sans",sans-serif;background:var(--bg);color:var(--text);margin:0;padding:0 0 60px;}
+  header{background:#111827;color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;}
+  header h1{font-size:16px;margin:0;}
+  .badge{background:#374151;border-radius:12px;padding:2px 10px;font-size:12px;}
+  .meta-line{font-size:12px;color:#cbd5e1;}
+  main{max-width:980px;margin:0 auto;padding:14px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;}
+  .panel h2{font-size:14px;margin:0 0 8px;color:#111827;border-left:4px solid #4b5563;padding-left:8px;}
+  table{border-collapse:collapse;width:100%;font-size:13px;}
+  th,td{border:1px solid var(--border);padding:4px 6px;text-align:center;}
+  th{background:#f0f1f3;}
+  .col-you{color:var(--you);font-weight:bold;}
+  .col-npc1{color:var(--npc1);font-weight:bold;}
+  .col-npc2{color:var(--npc2);font-weight:bold;}
+  .btn{background:#374151;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:13px;cursor:pointer;margin:3px;}
+  .btn:hover{background:#1f2937;}
+  .btn:disabled{background:#9ca3af;cursor:not-allowed;}
+  .btn.armed{background:#b91c1c;}
+  .btn-keep{background:#2563eb;}
+  .btn-keep:hover{background:#1d4ed8;}
+  .btn-retire{background:#b45309;}
+  .btn-retire:hover{background:#92400e;}
+  .btn-ghost{background:#e5e7eb;color:#111827;}
+  .btn-ghost:hover{background:#d1d5db;}
+  .card-box{display:inline-block;border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin:4px;background:#fafafa;min-width:150px;vertical-align:top;cursor:pointer;font:inherit;text-align:left;}
+  .card-box:hover{border-color:#4b5563;background:#f0f1f3;}
+  .card-box:disabled,.card-box.disabled{opacity:.4;cursor:not-allowed;}
+  .card-box .cname{font-weight:bold;font-size:14px;}
+  .card-box .ceffect{font-size:11px;color:var(--muted);margin-top:2px;}
+  .card-box .cretire{font-size:11px;color:#b45309;margin-top:2px;}
+  .area-btn{display:inline-block;border:2px solid var(--border);border-radius:8px;padding:10px 16px;margin:4px;cursor:pointer;font-size:13px;background:#fff;font:inherit;text-align:left;}
+  .area-btn:hover{border-color:#4b5563;}
+  .area-btn:disabled,.area-btn.disabled{opacity:.35;cursor:not-allowed;}
+  .area-btn.picked{border-color:#2563eb;background:#dbeafe;}
+  .log-box{max-height:220px;overflow-y:auto;background:#111827;color:#e5e7eb;font-size:12px;padding:8px;border-radius:6px;font-family:monospace;}
+  .log-line{padding:2px 0;border-bottom:1px solid #1f2937;}
+  .toast{position:fixed;top:0;left:0;right:0;background:#b91c1c;color:#fff;padding:10px;text-align:center;z-index:999;font-size:13px;}
+  .hidden{display:none !important;}
+  .flow-step{font-size:12px;color:var(--muted);margin-bottom:6px;}
+  .qa-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  textarea{width:100%;font-family:monospace;font-size:11px;}
+  .small{font-size:11px;color:var(--muted);}
+  .rank1{font-weight:bold;color:#b45309;}
+</style>
+</head>
+<body>
+<div id="toast" class="toast hidden"></div>
+<header>
+  <h1>新作デッキ構築ゲーム ソロテスト版</h1>
+  <div>
+    <span class="badge" id="verBadge">v0.1.0</span>
+    <span class="meta-line" id="metaLine"></span>
+  </div>
+</header>
+<main>
+
+<section id="screen-start" class="panel">
+  <h2>ゲーム開始</h2>
+  <p class="small">
+    これはキル/キープ判断のためのテスト台です。固定8枚デッキ・使用後に「継続 or 引退」を選ぶ核を、
+    ブラウザ上でNPC2体（S1:フルチャーン／S3:相乗温存）を相手にソロプレイできます。
+  </p>
+  <p>
+    シード（空欄なら自動生成）：<input type="text" id="seedInput" placeholder="例: 12345">
+  </p>
+  <p>対戦NPC構成：</p>
+  <label><input type="radio" name="npccombo" value="s1s3" checked> S1（フルチャーン）+ S3（相乗温存）― デフォルト</label><br>
+  <label><input type="radio" name="npccombo" value="s1s1"> S1 + S1（全引退卓）</label><br>
+  <label><input type="radio" name="npccombo" value="s3s3"> S3 + S3（相乗温存卓）</label><br>
+  <p><button class="btn" id="startBtn">ゲーム開始</button></p>
+</section>
+
+<section id="screen-game" class="hidden">
+  <div class="panel">
+    <h2>盤面</h2>
+    <div id="boardPanel"></div>
+  </div>
+  <div class="panel">
+    <h2>得点状況</h2>
+    <div id="scorePanel"></div>
+  </div>
+  <div class="panel">
+    <h2>市場</h2>
+    <div id="marketPanel"></div>
+  </div>
+  <div class="panel">
+    <h2>あなたの手番</h2>
+    <div id="turnPanel"></div>
+  </div>
+  <div class="panel">
+    <h2>NPC行動ログ</h2>
+    <div class="log-box" id="npcLogBox"></div>
+  </div>
+</section>
+
+<section id="screen-end" class="hidden panel">
+  <h2>ゲーム終了</h2>
+  <div id="endResult"></div>
+  <h2>終了時アンケート</h2>
+  <div id="endQuestions"></div>
+  <p><button class="btn" id="finishSurveyBtn">回答を確定してログを生成</button></p>
+  <div id="exportArea" class="hidden">
+    <h2>テストログ（Markdown）</h2>
+    <textarea id="exportText" rows="20" readonly></textarea>
+    <p><button class="btn" id="copyLogBtn">ログをコピー</button> <span id="copyStatus" class="small"></span></p>
+  </div>
+</section>
+
+<section id="screen-dev" class="panel hidden">
+  <h2>開発用: NPC突合トレース生成（?dev=1）</h2>
+  <p class="small">完了条件3の突合用。全席をNPCにして自動プレイし、決定トレースJSONを書き出す。</p>
+  シード: <input type="text" id="devSeed" value="777001">
+  Seat0戦略: <select id="devSeat0"><option value="S1">S1</option><option value="S3">S3</option></select>
+  Seat1戦略: <select id="devSeat1"><option value="S3">S3</option><option value="S1">S1</option></select>
+  Seat2戦略: <select id="devSeat2"><option value="S3">S3</option><option value="S1">S1</option></select>
+  <p><button class="btn" id="devRunBtn">全自動プレイでトレース生成</button></p>
+  <textarea id="devTraceOut" rows="12"></textarea>
+  <p><button class="btn" id="devCopyBtn">トレースをコピー</button></p>
+</section>
+
+</main>
+
+<script>
+'use strict';
+const VER = "0.1.0";
+document.getElementById('verBadge').textContent = 'v' + VER;
+
+// ─────────────────────────────────────────────────────────────
+// カード定義（deckbuilder_sim.py §2 と同一。ルールの正は同ファイル）
+// ─────────────────────────────────────────────────────────────
+const APPRENTICE='見習い', EXPERT='専門家', PIONEER='開拓者', COORDINATOR='調整役', VETERAN='古参',
+      MASTER='親方', CHALLENGER='挑戦者', LIAISON='連携役', STRATEGIST='戦略家', FOLLOWER='追随者',
+      MEDIATOR='調停者', VIRTUOSO='名手', ELDER='長老';
+
+const CARD_ORDER = [APPRENTICE, EXPERT, PIONEER, COORDINATOR, VETERAN,
+                     MASTER, CHALLENGER, LIAISON, STRATEGIST, FOLLOWER,
+                     MEDIATOR, VIRTUOSO, ELDER];
+const CARD_RANK = {}; CARD_ORDER.forEach((c,i)=>CARD_RANK[c]=i);
+
+const RETIRE_PTS = {
+  [APPRENTICE]:0, [EXPERT]:1, [PIONEER]:1, [COORDINATOR]:1, [VETERAN]:2,
+  [MASTER]:1, [CHALLENGER]:2, [LIAISON]:2, [STRATEGIST]:2, [FOLLOWER]:3,
+  [MEDIATOR]:3, [VIRTUOSO]:2, [ELDER]:3,
+};
+const CARD_EFFECT_TEXT = {
+  [APPRENTICE]:'好きな領域に影響力1個',
+  [EXPERT]:'自分の影響力がすでにある領域1つに2個。1つもなければ好きな領域に1個',
+  [PIONEER]:'自分の影響力がない領域1つに2個。全領域にあるなら好きな領域に1個',
+  [COORDINATOR]:'自分の影響力1個を別領域へ移動し、移動先にさらに1個。移動不能なら好きな領域に1個',
+  [VETERAN]:'自分が単独1位でない領域1つに2個。全領域で単独1位なら好きな領域に1個',
+  [MASTER]:'自分の影響力がある領域1つに3個',
+  [CHALLENGER]:'自分より影響力の多い相手がいる領域1つに3個。該当なしなら好きな領域に1個',
+  [LIAISON]:'異なる2領域に1個ずつ',
+  [STRATEGIST]:'自分の影響力を合計2個まで自由に移動し、その後好きな領域に1個',
+  [FOLLOWER]:'自分が最下位の領域1つに3個',
+  [MEDIATOR]:'1位と2位の影響力差が2個以下の領域1つに2個。該当なしなら好きな領域に1個',
+  [VIRTUOSO]:'好きな領域に2個。それで単独1位になったら別領域にも1個',
+  [ELDER]:'自分が単独1位の領域1つにつきその領域に1個（最大3個）。どこでも1位でなければ好きな領域に1個',
+};
+const GROWTH_CARDS = [MASTER, CHALLENGER, LIAISON, STRATEGIST, FOLLOWER, MEDIATOR, VIRTUOSO, ELDER];
+function initialDeck(){ return [APPRENTICE,APPRENTICE,APPRENTICE,EXPERT,EXPERT,PIONEER,COORDINATOR,VETERAN]; }
+const BASE_POINTS = [5,3,1];
+const AREA_NAMES = ['領域A','領域B','領域C'];
+const PRIORITY_PAIRS = [[0,1],[0,2],[1,2]];
+const S3_KEEP_SET = new Set([EXPERT, MASTER, ELDER]);
+const STRATEGY_LABEL = {S1:'フルチャーン', S3:'相乗温存', YOU:'あなた'};
+
+// ─────────────────────────────────────────────────────────────
+// 乱数（mulberry32。sim/yomi_sim.js と同型の決定的PRNG）
+// ─────────────────────────────────────────────────────────────
+function mulberry32(seed){
+  let a = seed >>> 0;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function shuffle(arr, rng){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(rng()*(i+1));
+    const tmp=arr[i]; arr[i]=arr[j]; arr[j]=tmp;
+  }
+}
+function hashSeed(str){
+  let h=0;
+  for(let i=0;i<str.length;i++){ h = (Math.imul(h,31) + str.charCodeAt(i))|0; }
+  return Math.abs(h) || 1;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 盤面採点（deckbuilder_sim.py area_points と同一のタイ処理）
+// ─────────────────────────────────────────────────────────────
+const _areaCache = new Map();
+function areaPoints(counts){
+  const key = counts.join(',');
+  if(_areaCache.has(key)) return _areaCache.get(key);
+  const A=[0,1,2];
+  let ranked = A.filter(i=>counts[i]>0);
+  ranked.sort((x,y)=>counts[y]-counts[x]);
+  const pts=[0,0,0];
+  let pos=0, i=0; const n=ranked.length;
+  while(i<n){
+    let j=i;
+    while(j<n && counts[ranked[j]]===counts[ranked[i]]) j++;
+    const group=ranked.slice(i,j);
+    const pool = BASE_POINTS.slice(pos,pos+group.length).reduce((a,b)=>a+b,0);
+    const share = Math.floor(pool/group.length);
+    for(const pl of group) pts[pl]=share;
+    pos+=group.length; i=j;
+  }
+  _areaCache.set(key, pts);
+  return pts;
+}
+function myPoints(inf, me){
+  return areaPoints(inf[0])[me] + areaPoints(inf[1])[me] + areaPoints(inf[2])[me];
+}
+function scoreDelta(inf, me, delta, before){
+  inf[0][me]+=delta[0]; inf[1][me]+=delta[1]; inf[2][me]+=delta[2];
+  const v = myPoints(inf, me) - before;
+  inf[0][me]-=delta[0]; inf[1][me]-=delta[1]; inf[2][me]-=delta[2];
+  return v;
+}
+function soleFirst(inf, a, me){
+  const mc = inf[a][me];
+  if(mc<=0) return false;
+  for(let p=0;p<3;p++){ if(p!==me && inf[a][p]>=mc) return false; }
+  return true;
+}
+function areaRanks(counts){
+  const A=[0,1,2];
+  const ranked = A.filter(i=>counts[i]>0).sort((x,y)=>counts[y]-counts[x]);
+  const ranks=['―','―','―'];
+  let pos=0,i=0; const n=ranked.length;
+  while(i<n){
+    let j=i; while(j<n && counts[ranked[j]]===counts[ranked[i]]) j++;
+    const group=ranked.slice(i,j);
+    const label=(pos===0?'1位':pos===1?'2位':'3位')+(group.length>1?'(同点)':'');
+    for(const pl of group) ranks[pl]=label;
+    pos+=group.length; i=j;
+  }
+  return ranks;
+}
+function applyDelta(inf, p, delta){ inf[0][p]+=delta[0]; inf[1][p]+=delta[1]; inf[2][p]+=delta[2]; }
+function cmpKey(a,b){ return a[0]!==b[0] ? a[0]-b[0] : a[1]-b[1]; }
+
+// ─────────────────────────────────────────────────────────────
+// カード効果: NPC用（deckbuilder_sim.py resolve() の1:1移植・増分最大を自動選択）
+// 返り値 [increment, delta(list3), met, areas(Set)]
+// ─────────────────────────────────────────────────────────────
+function bestPlace(inf, me, k, cands, before){
+  let bestInc=null, bestA=cands[0];
+  for(const a of cands){
+    const d=[a===0?k:0, a===1?k:0, a===2?k:0];
+    const inc = scoreDelta(inf, me, d, before);
+    if(bestInc===null || inc>bestInc){ bestInc=inc; bestA=a; }
+  }
+  const d=[0,0,0]; d[bestA]=k;
+  return [bestInc, d, bestA];
+}
+function resolveNPC(card, inf, me){
+  const before = myPoints(inf, me);
+  const A=[0,1,2];
+  if(card===APPRENTICE){
+    const [inc,d,a]=bestPlace(inf,me,1,A,before); return [inc,d,true,new Set([a])];
+  }
+  if(card===EXPERT){
+    const c=A.filter(a=>inf[a][me]>0);
+    if(c.length){ const [inc,d,a]=bestPlace(inf,me,2,c,before); return [inc,d,true,new Set([a])]; }
+    const [inc,d,a]=bestPlace(inf,me,1,A,before); return [inc,d,false,new Set([a])];
+  }
+  if(card===PIONEER){
+    const c=A.filter(a=>inf[a][me]===0);
+    if(c.length){ const [inc,d,a]=bestPlace(inf,me,2,c,before); return [inc,d,true,new Set([a])]; }
+    const [inc,d,a]=bestPlace(inf,me,1,A,before); return [inc,d,false,new Set([a])];
+  }
+  if(card===VETERAN){
+    const c=A.filter(a=>!soleFirst(inf,a,me));
+    if(c.length){ const [inc,d,a]=bestPlace(inf,me,2,c,before); return [inc,d,true,new Set([a])]; }
+    const [inc,d,a]=bestPlace(inf,me,1,A,before); return [inc,d,false,new Set([a])];
+  }
+  if(card===MASTER){
+    const c=A.filter(a=>inf[a][me]>0);
+    if(c.length){ const [inc,d,a]=bestPlace(inf,me,3,c,before); return [inc,d,true,new Set([a])]; }
+    const [inc,d,a]=bestPlace(inf,me,1,A,before); return [inc,d,false,new Set([a])];
+  }
+  if(card===CHALLENGER){
+    const c=A.filter(a=>A.some(p=>p!==me && inf[a][p]>inf[a][me]));
+    if(c.length){ const [inc,d,a]=bestPlace(inf,me,3,c,before); return [inc,d,true,new Set([a])]; }
+    const [inc,d,a]=bestPlace(inf,me,1,A,before); return [inc,d,false,new Set([a])];
+  }
+  if(card===FOLLOWER){
+    const c=A.filter(a=>inf[a][me]===Math.min(inf[a][0],inf[a][1],inf[a][2]));
+    if(c.length){ const [inc,d,a]=bestPlace(inf,me,3,c,before); return [inc,d,true,new Set([a])]; }
+    const [inc,d,a]=bestPlace(inf,me,1,A,before); return [inc,d,false,new Set([a])];
+  }
+  if(card===MEDIATOR){
+    const c=[];
+    for(const a of A){ const cs=[inf[a][0],inf[a][1],inf[a][2]].sort((x,y)=>y-x); if(cs[0]-cs[1]<=2) c.push(a); }
+    if(c.length){ const [inc,d,a]=bestPlace(inf,me,2,c,before); return [inc,d,true,new Set([a])]; }
+    const [inc,d,a]=bestPlace(inf,me,1,A,before); return [inc,d,false,new Set([a])];
+  }
+  if(card===LIAISON){
+    let bestInc=null,bestPair=[0,1];
+    for(const pr of [[0,1],[0,2],[1,2]]){
+      const d=[0,0,0]; d[pr[0]]=1; d[pr[1]]=1;
+      const inc=scoreDelta(inf,me,d,before);
+      if(bestInc===null||inc>bestInc){bestInc=inc;bestPair=pr;}
+    }
+    const d=[0,0,0]; d[bestPair[0]]=1; d[bestPair[1]]=1;
+    return [bestInc,d,true,new Set(bestPair)];
+  }
+  if(card===VIRTUOSO){
+    let bestInc=null,bestDelta=null,bestAreas=null;
+    for(const a of A){
+      const d=[0,0,0]; d[a]=2;
+      inf[a][me]+=2;
+      const solo=soleFirst(inf,a,me);
+      let cand;
+      if(solo){
+        const others=A.filter(x=>x!==a);
+        const subBefore=myPoints(inf,me);
+        let bi=null,bb=others[0];
+        for(const b of others){
+          const dd=[b===0?1:0,b===1?1:0,b===2?1:0];
+          const v=scoreDelta(inf,me,dd,subBefore);
+          if(bi===null||v>bi){bi=v;bb=b;}
+        }
+        inf[a][me]-=2;
+        const dd=[0,0,0]; dd[a]=2; dd[bb]=1;
+        const inc=scoreDelta(inf,me,dd,before);
+        cand=[inc,dd,new Set([a,bb])];
+      } else {
+        inf[a][me]-=2;
+        const inc=scoreDelta(inf,me,d,before);
+        cand=[inc,d,new Set([a])];
+      }
+      if(bestInc===null||cand[0]>bestInc){bestInc=cand[0];bestDelta=cand[1];bestAreas=cand[2];}
+    }
+    return [bestInc,bestDelta,true,bestAreas];
+  }
+  if(card===ELDER){
+    const c=A.filter(a=>soleFirst(inf,a,me));
+    if(c.length){
+      const d=[0,0,0]; for(const a of c) d[a]=1;
+      const inc=scoreDelta(inf,me,d,before);
+      return [inc,d,true,new Set(c)];
+    }
+    const [inc,d,a]=bestPlace(inf,me,1,A,before); return [inc,d,false,new Set([a])];
+  }
+  if(card===COORDINATOR){
+    const sources=A.filter(a=>inf[a][me]>0);
+    if(!sources.length){ const [inc,d,a]=bestPlace(inf,me,1,A,before); return [inc,d,false,new Set([a])]; }
+    let bestInc=null,bestDelta=null,bestAreas=null;
+    for(const src of sources){
+      for(const dst of A){
+        if(dst===src) continue;
+        const d=[0,0,0]; d[src]-=1; d[dst]+=2;
+        const inc=scoreDelta(inf,me,d,before);
+        if(bestInc===null||inc>bestInc){bestInc=inc;bestDelta=d;bestAreas=new Set([dst]);}
+      }
+    }
+    return [bestInc,bestDelta,true,bestAreas];
+  }
+  if(card===STRATEGIST){
+    const base=[inf[0][me],inf[1][me],inf[2][me]];
+    const moveDeltas=new Map(); moveDeltas.set('0,0,0',[0,0,0]);
+    for(const src of A){
+      if(base[src]>=1){
+        for(const dst of A){
+          if(dst===src) continue;
+          const md=[0,0,0]; md[src]-=1; md[dst]+=1;
+          moveDeltas.set(md.join(','), md.slice());
+          const st=[base[0]+md[0],base[1]+md[1],base[2]+md[2]];
+          for(const s2 of A){
+            if(st[s2]>=1){
+              for(const d2 of A){
+                if(d2===s2) continue;
+                const md2=md.slice(); md2[s2]-=1; md2[d2]+=1;
+                moveDeltas.set(md2.join(','), md2);
+              }
+            }
+          }
+        }
+      }
+    }
+    let bestInc=null,bestDelta=null,bestAreas=null;
+    for(const md of moveDeltas.values()){
+      for(const a of A){
+        const d=md.slice(); d[a]+=1;
+        const inc=scoreDelta(inf,me,d,before);
+        if(bestInc===null||inc>bestInc){ bestInc=inc;bestDelta=d;bestAreas=new Set(A.filter(i=>d[i]>0)); }
+      }
+    }
+    return [bestInc,bestDelta,true,bestAreas];
+  }
+  throw new Error('unknown card: '+card);
+}
+
+// ─────────────────────────────────────────────────────────────
+// カード効果: 人間用（候補領域のみ提示。最善手は提示しない = CLAUDE.md §0-6）
+// ─────────────────────────────────────────────────────────────
+function candidatesFor(card, inf, me){
+  const A=[0,1,2];
+  if(card===APPRENTICE) return {mode:'single', areas:A, amount:1, met:true};
+  if(card===EXPERT){ const c=A.filter(a=>inf[a][me]>0); return c.length?{mode:'single',areas:c,amount:2,met:true}:{mode:'single',areas:A,amount:1,met:false}; }
+  if(card===PIONEER){ const c=A.filter(a=>inf[a][me]===0); return c.length?{mode:'single',areas:c,amount:2,met:true}:{mode:'single',areas:A,amount:1,met:false}; }
+  if(card===VETERAN){ const c=A.filter(a=>!soleFirst(inf,a,me)); return c.length?{mode:'single',areas:c,amount:2,met:true}:{mode:'single',areas:A,amount:1,met:false}; }
+  if(card===MASTER){ const c=A.filter(a=>inf[a][me]>0); return c.length?{mode:'single',areas:c,amount:3,met:true}:{mode:'single',areas:A,amount:1,met:false}; }
+  if(card===CHALLENGER){ const c=A.filter(a=>A.some(p=>p!==me&&inf[a][p]>inf[a][me])); return c.length?{mode:'single',areas:c,amount:3,met:true}:{mode:'single',areas:A,amount:1,met:false}; }
+  if(card===FOLLOWER){ const c=A.filter(a=>inf[a][me]===Math.min(inf[a][0],inf[a][1],inf[a][2])); return c.length?{mode:'single',areas:c,amount:3,met:true}:{mode:'single',areas:A,amount:1,met:false}; }
+  if(card===MEDIATOR){
+    const c=[]; for(const a of A){ const cs=[inf[a][0],inf[a][1],inf[a][2]].sort((x,y)=>y-x); if(cs[0]-cs[1]<=2) c.push(a); }
+    return c.length?{mode:'single',areas:c,amount:2,met:true}:{mode:'single',areas:A,amount:1,met:false};
+  }
+  if(card===LIAISON) return {mode:'pair', areas:A};
+  if(card===VIRTUOSO) return {mode:'virtuoso', areas:A};
+  if(card===ELDER){ const c=A.filter(a=>soleFirst(inf,a,me)); return c.length?{mode:'auto',areas:c}:{mode:'single',areas:A,amount:1,met:false}; }
+  if(card===COORDINATOR){ const sources=A.filter(a=>inf[a][me]>0); return sources.length?{mode:'coordinator',sources}:{mode:'single',areas:A,amount:1,met:false}; }
+  if(card===STRATEGIST) return {mode:'strategist'};
+  throw new Error('unknown card: '+card);
+}
+
+// ─────────────────────────────────────────────────────────────
+// NPC戦略（deckbuilder_sim.py §4 の S1/S3 を移植。差は使用カード選択と継続/引退判断のみ）
+// ─────────────────────────────────────────────────────────────
+function pickMaxBoard(hand, evals){
+  let bestI=0, bestKey=null;
+  hand.forEach((c,i)=>{
+    const key=[evals[i][0], -CARD_RANK[c]];
+    if(bestKey===null||cmpKey(key,bestKey)>0){bestKey=key;bestI=i;}
+  });
+  return bestI;
+}
+function s3Pick(seat, hand, evals){
+  const priority = state.s3Priority[seat];
+  const disposable = new Set();
+  hand.forEach((c,i)=>{
+    const [inc,delta,met,areas]=evals[i];
+    const keepWorthy = S3_KEEP_SET.has(c) && met && [...areas].some(a=>priority.includes(a));
+    if(!keepWorthy) disposable.add(i);
+  });
+  const pool = disposable.size ? [...disposable] : hand.map((_,i)=>i);
+  let bestI=pool[0], bestKey=null;
+  for(const i of pool){
+    const key=[evals[i][0], -CARD_RANK[hand[i]]];
+    if(bestKey===null||cmpKey(key,bestKey)>0){bestKey=key;bestI=i;}
+  }
+  return {idx:bestI, disposable};
+}
+function bestMarketChurn(seat){
+  if(!state.market.length) return null;
+  let bestI=0,bestKey=null;
+  state.market.forEach((c,i)=>{
+    const [inc] = resolveNPC(c, state.inf, seat);
+    const v = RETIRE_PTS[c]+inc;
+    const key=[v, -CARD_RANK[c]];
+    if(bestKey===null||cmpKey(key,bestKey)>0){bestKey=key;bestI=i;}
+  });
+  return bestI;
+}
+
+// ─────────────────────────────────────────────────────────────
+// ゲーム状態・進行
+// ─────────────────────────────────────────────────────────────
+let state = null;
+let wiz = null;            // 人間の効果解決ウィザード状態
+let humanPhase = null;     // 'pickcard' | 'decide' | 'market'
+let humanConfused = false;
+let devMode = false;
+let devAutoAll = false;
+
+function drawToThree(seat){
+  const h = state.hand[seat];
+  while(h.length<3){
+    if(state.deck[seat].length===0){
+      if(state.discard[seat].length===0) break;
+      state.deck[seat] = state.discard[seat];
+      state.discard[seat] = [];
+      shuffle(state.deck[seat], state.rng);
+    }
+    h.push(state.deck[seat].pop());
+  }
+}
+function refillMarket(){
+  while(state.market.length<5 && state.supply.length>0) state.market.push(state.supply.pop());
+}
+
+function initGame(seed, comboKey, seatOverride){
+  const combos = {s1s3:['S1','S3'], s1s1:['S1','S1'], s3s3:['S3','S3']};
+  const [sidA,sidB] = combos[comboKey];
+  const rng = mulberry32(seed);
+  const players = seatOverride ? seatOverride.slice() : ['YOU', sidA, sidB];
+  state = {
+    seed, comboKey, rng, players,
+    inf: [[0,0,0],[0,0,0],[0,0,0]],
+    deck: [initialDeck(), initialDeck(), initialDeck()],
+    hand: [[],[],[]],
+    discard: [[],[],[]],
+    retireTotal: [0,0,0],
+    supply: [], market: [],
+    s3Priority: {},
+    turn:1, seat:0,
+    marketEmptiedTurn: null,
+    npcLog: [], testLog: {turns:[]},
+    devTrace: [],
+  };
+  let supply=[];
+  for(const c of GROWTH_CARDS){ for(let k=0;k<3;k++) supply.push(c); }
+  shuffle(supply, rng);
+  state.supply = supply;
+  for(let seat=0; seat<3; seat++){
+    if(state.players[seat]==='S3'){
+      const idx = Math.floor(rng()*3);
+      state.s3Priority[seat] = PRIORITY_PAIRS[idx].slice();
+    }
+  }
+  for(let i=0;i<5;i++){ if(state.supply.length) state.market.push(state.supply.pop()); }
+  for(let seat=0; seat<3; seat++){
+    shuffle(state.deck[seat], rng);
+    drawToThree(seat);
+  }
+  humanPhase = null; wiz = null; humanConfused = false;
+}
+
+function resolveNpcTurn(seat){
+  const turn = state.turn;
+  const sid = state.players[seat];
+  const hand = state.hand[seat];
+  const handBefore = hand.slice();
+  const infBefore = state.inf.map(a=>a.slice());
+  const marketBefore = state.market.slice();
+  const evals = hand.map(c=>resolveNPC(c, state.inf, seat));
+  let playIdx, disposableSet=null;
+  if(sid==='S1'){
+    playIdx = pickMaxBoard(hand, evals);
+  } else {
+    const r = s3Pick(seat, hand, evals);
+    playIdx = r.idx; disposableSet = r.disposable;
+  }
+  const card = hand[playIdx];
+  const ev = evals[playIdx];
+  const delta = ev[1];
+  applyDelta(state.inf, seat, delta);
+  const canRetire = state.market.length>0;
+  let retire=false, marketPickIdx=null;
+  if(canRetire){
+    if(sid==='S1'){ retire=true; marketPickIdx = bestMarketChurn(seat); }
+    else { retire = disposableSet.has(playIdx); if(retire) marketPickIdx = bestMarketChurn(seat); }
+  }
+  hand.splice(playIdx,1);
+  let marketTaken=null, logLine;
+  if(retire){
+    state.retireTotal[seat]+=RETIRE_PTS[card];
+    marketTaken = state.market.splice(marketPickIdx,1)[0];
+    state.discard[seat].push(marketTaken);
+    refillMarket();
+    logLine = card+'を使用 → 引退(+'+RETIRE_PTS[card]+'点)、市場から「'+marketTaken+'」を取得';
+  } else {
+    state.discard[seat].push(card);
+    logLine = card+'を使用 → 継続';
+  }
+  if(state.market.length===0 && state.supply.length===0 && state.marketEmptiedTurn===null) state.marketEmptiedTurn=turn;
+  state.discard[seat].push(...hand); hand.length=0;
+  drawToThree(seat);
+  state.npcLog.push({turn, seat, sid, text: logLine});
+  state.testLog.turns.push({turn, seat, isHuman:false, sid, card, decision: retire?'retire':'keep',
+    retirePts: retire?RETIRE_PTS[card]:0, marketTaken, confused:false});
+  if(devMode){
+    state.devTrace.push({turn, seat, sid, handBefore, infBefore, marketBefore,
+      s3Priority: sid==='S3' ? state.s3Priority[seat] : null,
+      playIdx, canRetire, retireDecision: retire, marketPickIdx: retire?marketPickIdx:null});
+  }
+}
+
+function runUntilHumanOrEnd(){
+  while(state.turn<=10){
+    while(state.seat<3){
+      if(state.seat===0 && !devAutoAll){
+        wiz = null; humanPhase = 'pickcard'; humanConfused = false;
+        renderAll();
+        return;
+      }
+      resolveNpcTurn(state.seat);
+      state.seat++;
+    }
+    state.seat=0; state.turn++;
+  }
+  endGame();
+}
+
+// ─────────────────────────────────────────────────────────────
+// 人間の手番: カード選択→効果対象選択→継続/引退→(引退時)市場選択
+// ─────────────────────────────────────────────────────────────
+function startWizard(cardIdx){
+  const card = state.hand[0][cardIdx];
+  const info = candidatesFor(card, state.inf, 0);
+  wiz = {cardIdx, card, info, step:'target', pairPicked:[], virtFirst:null, coordSrc:null,
+         moveDelta:[0,0,0], moveCount:0, finalDelta:null, finalAreas:null, finalMet:null};
+  if(info.mode==='auto'){
+    const d=[0,0,0]; for(const a of info.areas) d[a]=1;
+    wiz.finalDelta=d; wiz.finalAreas=new Set(info.areas); wiz.finalMet=true; wiz.step='confirm';
+  }
+  renderAll();
+}
+function wizPickSingle(a){
+  const d=[0,0,0]; d[a]=wiz.info.amount;
+  wiz.finalDelta=d; wiz.finalAreas=new Set([a]); wiz.finalMet=wiz.info.met; wiz.step='confirm';
+  renderAll();
+}
+function wizPickPair(a){
+  if(wiz.pairPicked.includes(a)){ wiz.pairPicked = wiz.pairPicked.filter(x=>x!==a); renderAll(); return; }
+  wiz.pairPicked.push(a);
+  if(wiz.pairPicked.length===2){
+    const d=[0,0,0]; d[wiz.pairPicked[0]]=1; d[wiz.pairPicked[1]]=1;
+    wiz.finalDelta=d; wiz.finalAreas=new Set(wiz.pairPicked); wiz.finalMet=true; wiz.step='confirm';
+  }
+  renderAll();
+}
+function wizPickVirtuosoFirst(a){
+  const tmp = state.inf.map(x=>x.slice());
+  tmp[a][0]+=2;
+  const solo = soleFirst(tmp, a, 0);
+  if(solo){
+    wiz.virtFirst = a; wiz.step='virtuoso2'; renderAll();
+  } else {
+    const d=[0,0,0]; d[a]=2;
+    wiz.finalDelta=d; wiz.finalAreas=new Set([a]); wiz.finalMet=true; wiz.step='confirm';
+    renderAll();
+  }
+}
+function wizPickVirtuosoSecond(b){
+  const a=wiz.virtFirst;
+  const d=[0,0,0]; d[a]=2; d[b]=1;
+  wiz.finalDelta=d; wiz.finalAreas=new Set([a,b]); wiz.finalMet=true; wiz.step='confirm';
+  renderAll();
+}
+function wizPickCoordSrc(src){
+  wiz.coordSrc=src; wiz.step='coordinator2'; renderAll();
+}
+function wizPickCoordDst(dst){
+  const d=[0,0,0]; d[wiz.coordSrc]-=1; d[dst]+=2;
+  wiz.finalDelta=d; wiz.finalAreas=new Set([dst]); wiz.finalMet=true; wiz.step='confirm';
+  renderAll();
+}
+function stratEffectiveInf(a){ return state.inf[a][0] + wiz.moveDelta[a]; }
+function wizStrategistStop(){ wiz.step='strategist_place'; renderAll(); }
+function wizStrategistSrc(src){ wiz._moveSrc = src; wiz.step='strategist_move_dest'; renderAll(); }
+function wizStrategistDst(dst){
+  wiz.moveDelta[wiz._moveSrc]-=1; wiz.moveDelta[dst]+=1;
+  wiz.moveCount++; wiz._moveSrc=null;
+  wiz.step = wiz.moveCount>=2 ? 'strategist_place' : 'strategist_move';
+  renderAll();
+}
+function wizStrategistPlace(a){
+  const d=wiz.moveDelta.slice(); d[a]+=1;
+  wiz.finalDelta=d; wiz.finalAreas=new Set([0,1,2].filter(i=>d[i]>0)); wiz.finalMet=true; wiz.step='confirm';
+  renderAll();
+}
+function wizBackToPickCard(){ wiz=null; humanPhase='pickcard'; renderAll(); }
+function wizRedo(){ startWizard(wiz.cardIdx); }
+
+function commitEffect(){
+  const card = state.hand[0][wiz.cardIdx];
+  applyDelta(state.inf, 0, wiz.finalDelta);
+  state.hand[0].splice(wiz.cardIdx,1);
+  state._turnCard = card;
+  wiz = null; humanConfused = false;
+  humanPhase = 'decide';
+  renderAll();
+}
+
+function humanToggleConfused(){ humanConfused = !humanConfused; renderAll(); }
+
+function humanChooseKeep(){ resolveHumanDecision(false, null); }
+function humanChooseRetireStart(){ humanPhase='market'; renderAll(); }
+function humanPickMarket(idx){ resolveHumanDecision(true, idx); }
+
+function resolveHumanDecision(retire, marketIdx){
+  const card = state._turnCard;
+  const turn = state.turn;
+  let marketTaken=null;
+  if(retire){
+    state.retireTotal[0]+=RETIRE_PTS[card];
+    marketTaken = state.market.splice(marketIdx,1)[0];
+    state.discard[0].push(marketTaken);
+    refillMarket();
+  } else {
+    state.discard[0].push(card);
+  }
+  if(state.market.length===0 && state.supply.length===0 && state.marketEmptiedTurn===null) state.marketEmptiedTurn=turn;
+  state.discard[0].push(...state.hand[0]); state.hand[0].length=0;
+  drawToThree(0);
+  state.testLog.turns.push({turn, seat:0, isHuman:true, sid:'YOU', card, decision: retire?'retire':'keep',
+    retirePts: retire?RETIRE_PTS[card]:0, marketTaken, confused: humanConfused});
+  humanPhase=null; state._turnCard=null; humanConfused=false;
+  state.seat++;
+  runUntilHumanOrEnd();
+}
+
+function endGame(){
+  const board = [0,1,2].map(p=>myPoints(state.inf,p));
+  const score = [0,1,2].map(p=>board[p]+state.retireTotal[p]);
+  state.finalBoard = board; state.finalScore = score;
+  showScreen('end');
+  renderEndScreen();
+}
+
+// ─────────────────────────────────────────────────────────────
+// 汎用: 二段クリック確認ボタン（confirm()は使わない。CLAUDE.md §4-1）
+// ─────────────────────────────────────────────────────────────
+function makeConfirmButton(label, armedLabel, onConfirm, extraClass){
+  const btn = document.createElement('button');
+  btn.textContent = label;
+  btn.className = 'btn ' + (extraClass||'');
+  let armed=false, timer=null;
+  btn.onclick = () => {
+    if(!armed){
+      armed=true; btn.textContent = armedLabel; btn.classList.add('armed');
+      timer=setTimeout(()=>{ armed=false; btn.textContent=label; btn.classList.remove('armed'); }, 4000);
+    } else {
+      clearTimeout(timer); armed=false;
+      onConfirm();
+    }
+  };
+  return btn;
+}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.remove('hidden');
+  setTimeout(()=>t.classList.add('hidden'), 6000);
+}
+window.onerror = function(msg){ showToast('エラーが発生しました: '+msg); return false; };
+
+function showScreen(name){
+  document.getElementById('screen-start').classList.toggle('hidden', name!=='start');
+  document.getElementById('screen-game').classList.toggle('hidden', name!=='game');
+  document.getElementById('screen-end').classList.toggle('hidden', name!=='end');
+}
+
+// ─────────────────────────────────────────────────────────────
+// 描画
+// ─────────────────────────────────────────────────────────────
+function el(tag, cls, text){
+  const e=document.createElement(tag);
+  if(cls) e.className=cls;
+  if(text!==undefined) e.textContent=text;
+  return e;
+}
+
+function renderAll(){
+  if(!state) return;
+  document.getElementById('metaLine').textContent =
+    'シード: '+state.seed+' ／ NPC構成: '+state.players[1]+'('+STRATEGY_LABEL[state.players[1]]+')+'
+    +state.players[2]+'('+STRATEGY_LABEL[state.players[2]]+') ／ ラウンド '+Math.min(state.turn,10)+'/10';
+  renderBoard();
+  renderScore();
+  renderMarket();
+  renderNpcLog();
+  renderTurnPanel();
+}
+
+function renderBoard(){
+  const box = document.getElementById('boardPanel');
+  box.innerHTML='';
+  const t = document.createElement('table');
+  const head = document.createElement('tr');
+  head.appendChild(el('th','',''));
+  head.appendChild(el('th','col-you','あなた'));
+  head.appendChild(el('th','col-npc1','NPC1('+state.players[1]+')'));
+  head.appendChild(el('th','col-npc2','NPC2('+state.players[2]+')'));
+  t.appendChild(head);
+  for(let a=0;a<3;a++){
+    const counts=[state.inf[a][0],state.inf[a][1],state.inf[a][2]];
+    const ranks=areaRanks(counts);
+    const row=document.createElement('tr');
+    row.appendChild(el('th','',AREA_NAMES[a]));
+    for(let p=0;p<3;p++){
+      const cellText = counts[p]+' ('+ranks[p]+')';
+      const cell = el('td', ranks[p].startsWith('1位')?'rank1':'', cellText);
+      row.appendChild(cell);
+    }
+    t.appendChild(row);
+  }
+  box.appendChild(t);
+}
+
+function renderScore(){
+  const box = document.getElementById('scorePanel');
+  box.innerHTML='';
+  const t=document.createElement('table');
+  const head=document.createElement('tr');
+  head.appendChild(el('th','',''));
+  head.appendChild(el('th','col-you','あなた'));
+  head.appendChild(el('th','col-npc1','NPC1'));
+  head.appendChild(el('th','col-npc2','NPC2'));
+  t.appendChild(head);
+  const board=[0,1,2].map(p=>myPoints(state.inf,p));
+  const rowRetire=document.createElement('tr');
+  rowRetire.appendChild(el('th','','引退点合計'));
+  for(let p=0;p<3;p++) rowRetire.appendChild(el('td','',String(state.retireTotal[p])));
+  t.appendChild(rowRetire);
+  const rowBoard=document.createElement('tr');
+  rowBoard.appendChild(el('th','','盤面点(現時点・参考)'));
+  for(let p=0;p<3;p++) rowBoard.appendChild(el('td','',String(board[p])));
+  t.appendChild(rowBoard);
+  const rowTotal=document.createElement('tr');
+  rowTotal.appendChild(el('th','','合計(参考)'));
+  for(let p=0;p<3;p++) rowTotal.appendChild(el('td','',String(board[p]+state.retireTotal[p])));
+  t.appendChild(rowTotal);
+  box.appendChild(t);
+}
+
+function renderMarket(){
+  const box = document.getElementById('marketPanel');
+  box.innerHTML='';
+  box.appendChild(el('div','small','供給山残り: '+state.supply.length+'枚'+(state.market.length===0?'　【市場切れ】':'')));
+  const wrap = document.createElement('div');
+  state.market.forEach((c,i)=>{
+    const onClick = humanPhase==='market' ? (()=>humanPickMarket(i)) : null;
+    wrap.appendChild(cardBox(c, onClick));
+  });
+  box.appendChild(wrap);
+}
+
+function renderNpcLog(){
+  const box = document.getElementById('npcLogBox');
+  box.innerHTML='';
+  state.npcLog.forEach(entry=>{
+    const line = el('div','log-line',
+      'R'+entry.turn+' NPC'+entry.seat+'('+entry.sid+'/'+STRATEGY_LABEL[entry.sid]+'): '+entry.text);
+    box.appendChild(line);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+function areaButton(label, enabled, picked, onClick){
+  const b = el('button','area-btn'+(picked?' picked':''), label);
+  b.disabled = !enabled;
+  if(enabled) b.onclick = onClick;
+  return b;
+}
+function cardBox(card, onClick){
+  const cb = el('button','card-box');
+  cb.appendChild(el('div','cname',card));
+  cb.appendChild(el('div','ceffect',CARD_EFFECT_TEXT[card]));
+  cb.appendChild(el('div','cretire','引退点 '+RETIRE_PTS[card]));
+  cb.disabled = !onClick;
+  if(onClick) cb.onclick = onClick;
+  return cb;
+}
+
+function renderTurnPanel(){
+  const box = document.getElementById('turnPanel');
+  box.innerHTML='';
+  if(state.turn>10){ box.appendChild(el('div','small','ゲーム終了処理中…')); return; }
+
+  if(wiz===null && humanPhase==='pickcard'){
+    box.appendChild(el('div','flow-step','手番1/4: 使用するカードを選んでください'));
+    const wrap=document.createElement('div');
+    state.hand[0].forEach((c,i)=>{
+      wrap.appendChild(cardBox(c, ()=>startWizard(i)));
+    });
+    box.appendChild(wrap);
+    return;
+  }
+
+  if(wiz!==null){
+    box.appendChild(el('div','flow-step','手番2/4: 「'+wiz.card+'」の効果対象を選んでください（'+CARD_EFFECT_TEXT[wiz.card]+'）'));
+    if(wiz.step==='target'){
+      if(wiz.info.mode==='single'){
+        const wrap=document.createElement('div');
+        [0,1,2].forEach(a=>{
+          const enabled = wiz.info.areas.includes(a);
+          wrap.appendChild(areaButton(AREA_NAMES[a]+(enabled?' (+'+wiz.info.amount+')':' (選択不可)'), enabled, false, ()=>wizPickSingle(a)));
+        });
+        box.appendChild(wrap);
+        if(!wiz.info.met) box.appendChild(el('div','small','条件を満たす領域が無いため、好きな領域に1個の救済適用になります。'));
+      } else if(wiz.info.mode==='pair'){
+        box.appendChild(el('div','small','異なる2領域をクリックしてください（現在 '+wiz.pairPicked.length+'/2）'));
+        const wrap=document.createElement('div');
+        [0,1,2].forEach(a=>{
+          wrap.appendChild(areaButton(AREA_NAMES[a]+' (+1)', true, wiz.pairPicked.includes(a), ()=>wizPickPair(a)));
+        });
+        box.appendChild(wrap);
+      } else if(wiz.info.mode==='virtuoso'){
+        box.appendChild(el('div','small','まず+2を置く領域を選んでください（単独1位になれば追加で+1を置く領域を選びます）'));
+        const wrap=document.createElement('div');
+        [0,1,2].forEach(a=>{
+          wrap.appendChild(areaButton(AREA_NAMES[a]+' (+2)', true, false, ()=>wizPickVirtuosoFirst(a)));
+        });
+        box.appendChild(wrap);
+      } else if(wiz.info.mode==='coordinator'){
+        box.appendChild(el('div','small','移動元の領域（影響力1以上）を選んでください'));
+        const wrap=document.createElement('div');
+        [0,1,2].forEach(a=>{
+          const enabled = wiz.info.sources.includes(a);
+          wrap.appendChild(areaButton(AREA_NAMES[a]+' 現在'+state.inf[a][0]+'個'+(enabled?'':' (選択不可)'), enabled, false, ()=>wizPickCoordSrc(a)));
+        });
+        box.appendChild(wrap);
+      } else if(wiz.info.mode==='strategist'){
+        wiz.step='strategist_move';
+        renderStrategistMove(box);
+      }
+      const back = el('button','btn btn-ghost','カード選択に戻る');
+      back.onclick = wizBackToPickCard;
+      box.appendChild(back);
+    } else if(wiz.step==='virtuoso2'){
+      const a=wiz.virtFirst;
+      box.appendChild(el('div','small',AREA_NAMES[a]+'で単独1位になりました。追加で+1を置く領域を選んでください'));
+      const wrap=document.createElement('div');
+      [0,1,2].filter(x=>x!==a).forEach(b=>{
+        wrap.appendChild(areaButton(AREA_NAMES[b]+' (+1)', true, false, ()=>wizPickVirtuosoSecond(b)));
+      });
+      box.appendChild(wrap);
+    } else if(wiz.step==='coordinator2'){
+      box.appendChild(el('div','small','移動先の領域を選んでください（移動元から-1・移動先に+2）'));
+      const wrap=document.createElement('div');
+      [0,1,2].filter(x=>x!==wiz.coordSrc).forEach(dst=>{
+        wrap.appendChild(areaButton(AREA_NAMES[dst]+' (+2)', true, false, ()=>wizPickCoordDst(dst)));
+      });
+      box.appendChild(wrap);
+    } else if(wiz.step==='strategist_move'){
+      renderStrategistMove(box);
+    } else if(wiz.step==='strategist_move_dest'){
+      box.appendChild(el('div','small',AREA_NAMES[wiz._moveSrc]+'から移動する先を選んでください'));
+      const wrap=document.createElement('div');
+      [0,1,2].filter(x=>x!==wiz._moveSrc).forEach(dst=>{
+        wrap.appendChild(areaButton(AREA_NAMES[dst]+' (+1)', true, false, ()=>wizStrategistDst(dst)));
+      });
+      box.appendChild(wrap);
+    } else if(wiz.step==='strategist_place'){
+      box.appendChild(el('div','small','最後に+1を置く領域を選んでください（移動回数: '+wiz.moveCount+'/2）'));
+      const wrap=document.createElement('div');
+      [0,1,2].forEach(a=>{
+        wrap.appendChild(areaButton(AREA_NAMES[a]+' (+1)', true, false, ()=>wizStrategistPlace(a)));
+      });
+      box.appendChild(wrap);
+    } else if(wiz.step==='confirm'){
+      box.appendChild(el('div','small','配置プレビュー（未確定）: '+previewText(wiz.finalDelta)));
+      const confirmBtn = makeConfirmButton('この内容で確定','本当に確定しますか？（もう一度クリック）', commitEffect);
+      box.appendChild(confirmBtn);
+      if(wiz.info.mode!=='auto'){
+        const redo = el('button','btn btn-ghost','選び直す');
+        redo.onclick = wizRedo;
+        box.appendChild(redo);
+      }
+    }
+    return;
+  }
+
+  if(humanPhase==='decide'){
+    const card = state._turnCard;
+    box.appendChild(el('div','flow-step','手番3/4: 「'+card+'」を継続しますか、引退しますか？（引退点 '+RETIRE_PTS[card]+'）'));
+    const confused = el('button','btn btn-ghost'+(humanConfused?' armed':''), humanConfused?'迷った気持ちを記録しました':'🤔 迷った（タップで記録）');
+    confused.onclick = humanToggleConfused;
+    box.appendChild(confused);
+    box.appendChild(document.createElement('br'));
+    const keepBtn = makeConfirmButton('継続する','本当に継続しますか？（もう一度クリック）', humanChooseKeep, 'btn-keep');
+    box.appendChild(keepBtn);
+    const canRetire = state.market.length>0;
+    const retireBtn = makeConfirmButton('引退する','本当に引退しますか？（もう一度クリック）', humanChooseRetireStart, 'btn-retire');
+    if(!canRetire){ retireBtn.disabled=true; }
+    box.appendChild(retireBtn);
+    if(!canRetire) box.appendChild(el('div','small','市場が空のため、この手番は引退できません（継続のみ）。'));
+    return;
+  }
+
+  if(humanPhase==='market'){
+    box.appendChild(el('div','flow-step','手番4/4: 市場から取得するカードを選んでください（下の市場パネルから選択）'));
+    return;
+  }
+}
+
+function renderStrategistMove(box){
+  box.appendChild(el('div','small','移動回数 '+wiz.moveCount+'/2。移動元（現在の影響力≧1）を選ぶか、移動をやめて配置へ進んでください'));
+  const eff=[0,1,2].map(a=>stratEffectiveInf(a));
+  const wrap=document.createElement('div');
+  [0,1,2].forEach(a=>{
+    const enabled = wiz.moveCount<2 && eff[a]>=1;
+    wrap.appendChild(areaButton(AREA_NAMES[a]+' 現在'+eff[a]+'個'+(enabled?'':' (選択不可)'), enabled, false, ()=>wizStrategistSrc(a)));
+  });
+  box.appendChild(wrap);
+  const stop = el('button','btn btn-ghost','移動をやめて配置へ進む');
+  stop.onclick = wizStrategistStop;
+  box.appendChild(stop);
+}
+
+function previewText(delta){
+  const parts=[];
+  [0,1,2].forEach(a=>{ if(delta[a]!==0) parts.push(AREA_NAMES[a]+(delta[a]>0?'+':'')+delta[a]); });
+  return parts.join(' / ');
+}
+
+// ─────────────────────────────────────────────────────────────
+// 終了画面: 結果表示・自己評価アンケート・ログ書き出し
+// ─────────────────────────────────────────────────────────────
+const SELF_ASSESS_QUESTIONS = [
+  '成長カードを引退させるか明確に迷った',
+  '引退点3のカードを現役として残した',
+  '引退点1のカードを盤面価値のため複数回使用した',
+  '市場に有用なカードがあっても現在のカードを残した',
+  '同じカードでも盤面状況によって判断が変わった',
+  '終了後に「もう一度使いたかったカード」があった',
+  '手札に有用カードが複数並び、どれを使うか迷った',
+  '「先に取られる前に引退して取ろう」と考えた瞬間があった',
+];
+
+function renderEndScreen(){
+  const res = document.getElementById('endResult');
+  res.innerHTML='';
+  const t=document.createElement('table');
+  const head=document.createElement('tr');
+  head.appendChild(el('th','',''));
+  head.appendChild(el('th','col-you','あなた'));
+  head.appendChild(el('th','col-npc1','NPC1('+state.players[1]+')'));
+  head.appendChild(el('th','col-npc2','NPC2('+state.players[2]+')'));
+  t.appendChild(head);
+  const rows=[['盤面点', state.finalBoard], ['引退点', state.retireTotal],
+              ['最終得点', state.finalScore]];
+  rows.forEach(([label, vals])=>{
+    const r=document.createElement('tr');
+    r.appendChild(el('th','',label));
+    vals.forEach(v=>r.appendChild(el('td','',String(v))));
+    t.appendChild(r);
+  });
+  res.appendChild(t);
+  const mx = Math.max(...state.finalScore);
+  const winners = [0,1,2].filter(p=>state.finalScore[p]===mx).map(p=>p===0?'あなた':'NPC'+p);
+  res.appendChild(el('div','small','勝者: '+winners.join(' / ')+(winners.length>1?'（同点）':'')));
+
+  const qbox = document.getElementById('endQuestions');
+  qbox.innerHTML='';
+  SELF_ASSESS_QUESTIONS.forEach((q,i)=>{
+    const row=el('div','qa-row');
+    row.appendChild(el('span','',(i+1)+'. '+q));
+    const yn=document.createElement('span');
+    const yid='q'+i;
+    yn.innerHTML = '<label><input type="radio" name="'+yid+'" value="yes"> はい</label> '+
+                   '<label><input type="radio" name="'+yid+'" value="no" checked> いいえ</label>';
+    row.appendChild(yn);
+    qbox.appendChild(row);
+  });
+  const freeRow = el('div','qa-row');
+  freeRow.appendChild(el('span','','自由記入: 気づいたこと'));
+  qbox.appendChild(freeRow);
+  const freeTxt = document.createElement('textarea');
+  freeTxt.id='freeText'; freeTxt.rows=3; freeTxt.style.width='100%';
+  qbox.appendChild(freeTxt);
+}
+
+function retireTurnBucket(turn){
+  if(turn<=3) return 'early';
+  if(turn<=7) return 'mid';
+  return 'late';
+}
+
+function buildExportMarkdown(){
+  const q = SELF_ASSESS_QUESTIONS.map((text,i)=>{
+    const checked = document.querySelector('input[name=q'+i+']:checked');
+    const ans = checked ? (checked.value==='yes'?'はい':'いいえ') : 'いいえ';
+    return (i+1)+'. '+text+': '+ans;
+  }).join('\n');
+  const free = document.getElementById('freeText').value.trim();
+
+  const humanTurns = state.testLog.turns.filter(t=>t.isHuman);
+  const retiredHuman = humanTurns.filter(t=>t.decision==='retire');
+  const buckets = {early:0, mid:0, late:0};
+  retiredHuman.forEach(t=>buckets[retireTurnBucket(t.turn)]++);
+  const confusedCount = humanTurns.filter(t=>t.confused).length;
+
+  const depleteLine = state.marketEmptiedTurn===null ? 'なし' : ('あり（R'+state.marketEmptiedTurn+'）');
+
+  let md = '# 新作デッキ構築ゲーム ソロテスト ログ\n\n';
+  md += '- シード: '+state.seed+'\n';
+  md += '- NPC構成: NPC1='+state.players[1]+'('+STRATEGY_LABEL[state.players[1]]+') / NPC2='+state.players[2]+'('+STRATEGY_LABEL[state.players[2]]+')\n';
+  md += '- 最終得点: あなた='+state.finalScore[0]+'（盤面'+state.finalBoard[0]+'+引退'+state.retireTotal[0]+'） / '
+       +'NPC1='+state.finalScore[1]+' / NPC2='+state.finalScore[2]+'\n';
+  md += '- あなたの引退回数の手番分布: 序盤(R1-3)='+buckets.early+' / 中盤(R4-7)='+buckets.mid+' / 終盤(R8-10)='+buckets.late+'\n';
+  md += '- 市場枯渇: '+depleteLine+'\n';
+  md += '- 「迷った」を押した手番: '+confusedCount+'回 / あなたの総手番10\n\n';
+
+  md += '## 手番ログ\n\n';
+  md += '| R | 手番 | プレイヤー | 使用カード | 判断 | 引退点 | 取得カード | 迷った |\n';
+  md += '|---|---|---|---|---|---|---|---|\n';
+  state.testLog.turns.sort((a,b)=> a.turn-b.turn || a.seat-b.seat).forEach(t=>{
+    const who = t.isHuman ? 'あなた' : ('NPC'+t.seat+'('+t.sid+')');
+    md += '| '+t.turn+' | '+t.seat+' | '+who+' | '+t.card+' | '+(t.decision==='retire'?'引退':'継続')+' | '
+        + t.retirePts+' | '+(t.marketTaken||'―')+' | '+(t.confused?'○':'')+' |\n';
+  });
+
+  md += '\n## 終了時アンケート\n\n';
+  md += q + '\n';
+  md += '- 自由記入: '+(free||'（なし）')+'\n';
+  return md;
+}
+
+async function copyText(text, statusElId){
+  const statusEl = document.getElementById(statusElId);
+  try{
+    await navigator.clipboard.writeText(text);
+    statusEl.textContent='コピーしました';
+  }catch(e){
+    const ta=document.createElement('textarea');
+    ta.value=text; ta.style.position='fixed'; ta.style.left='-9999px';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try{ document.execCommand('copy'); statusEl.textContent='コピーしました（互換モード）'; }
+    catch(e2){ statusEl.textContent='コピーに失敗しました。テキストを手動で選択してください。'; }
+    document.body.removeChild(ta);
+  }
+  setTimeout(()=>{ statusEl.textContent=''; }, 4000);
+}
+
+document.getElementById('finishSurveyBtn').onclick = () => {
+  const md = buildExportMarkdown();
+  document.getElementById('exportText').value = md;
+  document.getElementById('exportArea').classList.remove('hidden');
+};
+document.getElementById('copyLogBtn').onclick = () => {
+  copyText(document.getElementById('exportText').value, 'copyStatus');
+};
+
+// ─────────────────────────────────────────────────────────────
+// 開始画面
+// ─────────────────────────────────────────────────────────────
+document.getElementById('startBtn').onclick = () => {
+  const raw = document.getElementById('seedInput').value.trim();
+  let seed;
+  if(!raw) seed = Math.floor(Math.random()*1e9);
+  else { const n = Number(raw); seed = Number.isFinite(n) && raw.match(/^-?\d+$/) ? Math.abs(n)||1 : hashSeed(raw); }
+  const combo = document.querySelector('input[name=npccombo]:checked').value;
+  initGame(seed, combo);
+  showScreen('game');
+  runUntilHumanOrEnd();
+};
+
+// ─────────────────────────────────────────────────────────────
+// 開発用: NPC突合トレース生成（?dev=1 のときのみ表示。完了条件3用）
+// ─────────────────────────────────────────────────────────────
+if(location.search.indexOf('dev=1')>=0){
+  devMode = true;
+  document.getElementById('screen-dev').classList.remove('hidden');
+  document.getElementById('devRunBtn').onclick = () => {
+    const seed = Number(document.getElementById('devSeed').value) || 777001;
+    const seats = [document.getElementById('devSeat0').value,
+                    document.getElementById('devSeat1').value,
+                    document.getElementById('devSeat2').value];
+    devAutoAll = true;
+    initGame(seed, 's1s3', seats);
+    runUntilHumanOrEnd();
+    devAutoAll = false;
+    const out = { seed, seats, turns: state.devTrace };
+    document.getElementById('devTraceOut').value = JSON.stringify(out, null, 1);
+    showScreen('game');
+    renderAll();
+  };
+  document.getElementById('devCopyBtn').onclick = () => {
+    copyText(document.getElementById('devTraceOut').value, 'copyStatus');
+  };
+}
+
+showScreen('start');
+</script>
+</body>
+</html>

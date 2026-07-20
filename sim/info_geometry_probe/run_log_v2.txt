@@ -1,0 +1,12 @@
+[F0] done in 3.5s  M2'=0.0256 CI=(0.024764000000000033, 0.026348000000000035)  flip_rate=0.1507 avg_G|flip=0.1696  check_product=0.025556 (vs M2'=0.025556)
+[F9] done in 2.3s  M2'=0.5000 CI=(0.5, 0.5)  flip_rate=1.0000 avg_G|flip=0.5000  check_product=0.500000 (vs M2'=0.500000)
+[F+] done in 2.5s  M2'=0.1015 CI=(0.09884, 0.1042)  flip_rate=0.1015 avg_G|flip=1.0000  check_product=0.101480 (vs M2'=0.101480)
+[FA] done in 3.6s  M2'=0.0384 CI=(0.037187966666666676, 0.039718766666666676)  flip_rate=0.1099 avg_G|flip=0.3499  check_product=0.038445 (vs M2'=0.038445)
+[FB] done in 3.9s  M2'=0.0968 CI=(0.09458390000000001, 0.09908600000000002)  flip_rate=0.1609 avg_G|flip=0.6018  check_product=0.096848 (vs M2'=0.096848)
+[FC1] done in 4.1s  M2'=0.0286 CI=(0.02770400000000001, 0.02949000000000001)  flip_rate=0.1384 avg_G|flip=0.2066  check_product=0.028580 (vs M2'=0.028580)
+[FC2] done in 4.1s  M2'=0.0233 CI=(0.02256800000000002, 0.024078050000000014)  flip_rate=0.1196 avg_G|flip=0.1950  check_product=0.023320 (vs M2'=0.023320)
+TOTAL elapsed: 23.9s  mismatch_found=False
+self-check F9 G==0.5 exact: True
+self-check all G >= 0: True
+self-check reproduction matches v1: True
+wrote D:\ゲーム\ボドゲ\オリジナル用ローカル\original\sim\info_geometry_probe\results_v2.csv
