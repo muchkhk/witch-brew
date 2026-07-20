@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>交換台 ― 表層プロトタイプ</title>
+<style>
+  :root{
+    --bg: #1b1f27;
+    --panel: #262c38;
+    --panel2: #2f3849;
+    --text: #e8e8ef;
+    --muted: #8b93a7;
+    --accent: #d9a441;
+    --danger: #d9534f;
+    --ok: #5cb85c;
+    --border: #3a4152;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Sans", "Meiryo", system-ui, sans-serif;
+    padding: 12px;
+  }
+  h1{ font-size: 1.3rem; margin:0; display:flex; align-items:baseline; gap:10px; }
+  h1 .ver{ font-size: 0.65rem; color: var(--muted); font-weight:normal; }
+  h2{ font-size: 0.95rem; margin: 0 0 8px 0; color: var(--muted); border-bottom:1px solid var(--border); padding-bottom:4px; }
+  header{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+  .controls{ display:flex; align-items:center; gap:14px; }
+  button{
+    background: var(--panel2);
+    color: var(--text);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:8px 14px;
+    cursor:pointer;
+    font-size:0.9rem;
+  }
+  button:hover{ border-color: var(--accent); }
+  button.confirmArm{ background: var(--danger); color:#fff; border-color: var(--danger); }
+  .timer{ font-variant-numeric: tabular-nums; color: var(--accent); font-size:0.95rem; min-width:6em; }
+  .muteLabel{ font-size:0.85rem; color: var(--muted); display:flex; align-items:center; gap:4px; }
+  .errorBanner{
+    background: var(--danger);
+    color:#fff;
+    padding:8px 12px;
+    border-radius:6px;
+    margin-bottom:10px;
+    font-size:0.85rem;
+  }
+  .params{
+    background: var(--panel);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:10px 14px;
+    margin-bottom:12px;
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px,1fr));
+    gap:10px 18px;
+  }
+  .paramItem label{ display:block; font-size:0.75rem; color: var(--muted); margin-bottom:2px; }
+  .paramItem input[type=range]{ width:100%; }
+  .paramItem .val{ font-size:0.75rem; color: var(--accent); }
+  main.board{
+    display:grid;
+    grid-template-columns: 1.1fr 1fr 1.3fr;
+    gap:12px;
+  }
+  @media (max-width: 860px){
+    main.board{ grid-template-columns: 1fr; }
+  }
+  .col{
+    background: var(--panel);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:10px;
+    display:flex;
+    flex-direction:column;
+  }
+  .queueList, .plugPanel{ display:flex; flex-direction:column; gap:6px; min-height:80px; }
+  .logList{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    height:360px;
+    overflow-y:auto;
+    background: var(--bg);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:8px;
+  }
+  .placeholder{ color: var(--muted); font-size:0.85rem; }
+  .queueRow{
+    background: var(--panel2);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:8px 10px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    cursor:pointer;
+    font-size:0.88rem;
+  }
+  .queueRow:hover{ border-color: var(--accent); }
+  .queueRow.urgent .waitTime{ color: var(--danger); font-weight:bold; }
+  .queueRow.flash{ background: var(--danger); }
+  .waitTime{ color: var(--muted); font-variant-numeric: tabular-nums; }
+  .plugBox{
+    background: var(--panel2);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:10px;
+    font-size:0.88rem;
+    min-height:44px;
+  }
+  .plugBox.empty{ color: var(--muted); text-align:center; }
+  .plugBox.busy .remain{ color: var(--ok); font-variant-numeric: tabular-nums; margin-top:4px; }
+  .logEntry{ font-size:0.82rem; border-bottom:1px dashed var(--border); padding-bottom:3px; }
+  .logEntry:last-child{ border-bottom:none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>交換台 <span class="ver">switchboard_proto VER v1.0</span></h1>
+  <div class="controls">
+    <button id="startBtn" onclick="onStartClick()">▶ 交換を始める</button>
+    <span id="sessionTimer" class="timer">未開始</span>
+    <label class="muteLabel"><input type="checkbox" id="muteChk" checked onchange="soundEnabled=this.checked"> 🔊 効果音</label>
+  </div>
+</header>
+
+<div id="errorBanner" class="errorBanner" style="display:none;"></div>
+
+<section class="params">
+  <div class="paramItem">
+    <label>プラグ本数（同時通話数）: <span class="val" id="plugCountVal">3</span></label>
+    <input type="range" id="plugCountRange" min="2" max="6" step="1" value="3"
+      oninput="params.plugCount=Number(this.value); document.getElementById('plugCountVal').textContent=this.value; if(!SESSION) renderPanel();">
+  </div>
+  <div class="paramItem">
+    <label>呼び出し発生間隔（平均・秒）: <span class="val" id="callIntervalVal">7</span></label>
+    <input type="range" id="callIntervalRange" min="3" max="20" step="1" value="7"
+      oninput="params.callIntervalSec=Number(this.value); document.getElementById('callIntervalVal').textContent=this.value;">
+  </div>
+  <div class="paramItem">
+    <label>放棄までの待ち時間（秒）: <span class="val" id="abandonWaitVal">22</span></label>
+    <input type="range" id="abandonWaitRange" min="8" max="60" step="1" value="22"
+      oninput="params.abandonWaitSec=Number(this.value); document.getElementById('abandonWaitVal').textContent=this.value;">
+  </div>
+  <div class="paramItem">
+    <label>長い通話の割合（%）: <span class="val" id="longProbVal">35</span></label>
+    <input type="range" id="longProbRange" min="0" max="100" step="5" value="35"
+      oninput="params.longProb=Number(this.value); document.getElementById('longProbVal').textContent=this.value;">
+  </div>
+  <div class="paramItem">
+    <label>セッション長（分）: <span class="val" id="sessionMinVal">5</span></label>
+    <input type="range" id="sessionMinRange" min="2" max="10" step="1" value="5"
+      oninput="params.sessionMinutes=Number(this.value); document.getElementById('sessionMinVal').textContent=this.value;">
+  </div>
+</section>
+
+<main class="board">
+  <section class="col">
+    <h2>呼び出しキュー</h2>
+    <div id="queueList" class="queueList"></div>
+  </section>
+  <section class="col">
+    <h2>交換台パネル</h2>
+    <div id="plugPanel" class="plugPanel"></div>
+  </section>
+  <section class="col logCol">
+    <h2>記録欄</h2>
+    <div id="logList" class="logList"></div>
+  </section>
+</main>
+
+<script>
+'use strict';
+
+var VER = 'v1.0';
+
+var SUBSCRIBER_NAMES = ['田中','鈴木','佐藤','高橋','伊藤','渡辺','山本','中村','小林','加藤'];
+
+var params = { plugCount:3, callIntervalSec:7, abandonWaitSec:22, longProb:35, sessionMinutes:5 };
+
+var SESSION = null;
+var soundEnabled = true;
+var soundAvailable = false;
+var audioCtx = null;
+
+var queueListEl = document.getElementById('queueList');
+var plugPanelEl = document.getElementById('plugPanel');
+var logListEl = document.getElementById('logList');
+var timerEl = document.getElementById('sessionTimer');
+var errorBannerEl = document.getElementById('errorBanner');
+var startBtnEl = document.getElementById('startBtn');
+var errorHideTimer = null;
+
+function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function randomChoice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function escapeHtml(str){
+  return String(str).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];
+  });
+}
+function formatElapsed(ms){
+  var s = Math.max(0, Math.floor(ms/1000));
+  var m = Math.floor(s/60);
+  var ss = s%60;
+  return String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0');
+}
+
+function showError(err){
+  var msg = (err && err.message) ? err.message : String(err);
+  errorBannerEl.textContent = '⚠ エラー: '+msg;
+  errorBannerEl.style.display = 'block';
+  if(errorHideTimer) clearTimeout(errorHideTimer);
+  errorHideTimer = setTimeout(function(){ errorBannerEl.style.display='none'; }, 6000);
+}
+window.addEventListener('error', function(e){ showError(e.error || e.message); });
+window.addEventListener('unhandledrejection', function(e){ showError(e.reason); });
+
+function initAudioIfNeeded(){
+  if(audioCtx) return;
+  var Ctor = window.AudioContext || window.webkitAudioContext;
+  if(!Ctor){ soundAvailable = false; return; }
+  audioCtx = new Ctor();
+  soundAvailable = true;
+}
+function playTone(kind){
+  if(!soundEnabled || !soundAvailable || !audioCtx) return;
+  var freqMap = { ring:660, connect:880, complete:520, abandon:300 };
+  var freq = freqMap[kind] || 440;
+  var osc = audioCtx.createOscillator();
+  var gain = audioCtx.createGain();
+  osc.frequency.value = freq;
+  osc.type = 'sine';
+  gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime+0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime+0.18);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime+0.2);
+}
+
+// 2段階クリック確認（confirm()禁止の代替。1回目で文言と色が変わり、一定時間で自動キャンセル）
+function armTwoStep(btn, confirmLabel, onConfirm, timeoutMs){
+  timeoutMs = timeoutMs || 4000;
+  if(btn.dataset.armed === '1'){
+    btn.dataset.armed = '0';
+    clearTimeout(Number(btn.dataset.timer));
+    btn.textContent = btn.dataset.originalLabel;
+    btn.classList.remove('confirmArm');
+    onConfirm();
+    return;
+  }
+  btn.dataset.originalLabel = btn.dataset.originalLabel || btn.textContent;
+  btn.dataset.armed = '1';
+  btn.textContent = confirmLabel;
+  btn.classList.add('confirmArm');
+  var t = setTimeout(function(){
+    btn.dataset.armed = '0';
+    btn.textContent = btn.dataset.originalLabel;
+    btn.classList.remove('confirmArm');
+  }, timeoutMs);
+  btn.dataset.timer = String(t);
+}
+
+function onStartClick(){
+  initAudioIfNeeded();
+  if(SESSION && SESSION.logLines.length > 0){
+    armTwoStep(startBtnEl, 'もう一度クリックで新規開始（記録は消えます）', doStart);
+  } else {
+    doStart();
+  }
+}
+
+function doStart(){
+  SESSION = {
+    subscribers: SUBSCRIBER_NAMES.slice(),
+    blocked: new Set(),
+    busy: new Set(),
+    queue: [],
+    plugs: new Array(params.plugCount).fill(null),
+    nextCallAt: Date.now() + randInt(2,5)*1000,
+    followUps: [],
+    startedAt: Date.now(),
+    endedAt: Date.now() + params.sessionMinutes*60000,
+    nextId: 1,
+    logLines: [],
+    ended: false
+  };
+  logListEl.innerHTML = '';
+  startBtnEl.textContent = '交換中…（クリックでやり直し）';
+  renderQueue();
+  renderPanel();
+  renderTimer();
+}
+
+function endSession(){
+  SESSION.ended = true;
+  addLog('― セッション終了 ―');
+  startBtnEl.textContent = '🔁 新しく始める';
+  renderTimer();
+}
+
+function occupy(name){ SESSION.busy.add(name); }
+function freeSubscriber(name){ SESSION.busy.delete(name); }
+
+function pushCallToQueue(caller, callee){
+  occupy(caller); occupy(callee);
+  SESSION.queue.push({ id: SESSION.nextId++, caller: caller, callee: callee, arrivalAt: Date.now() });
+  playTone('ring');
+}
+
+function generateAmbientCall(){
+  var callerCandidates = SESSION.subscribers.filter(function(n){
+    return !SESSION.busy.has(n) && !SESSION.blocked.has(n);
+  });
+  if(callerCandidates.length === 0) return false;
+  var caller = randomChoice(callerCandidates);
+  var calleeCandidates = SESSION.subscribers.filter(function(n){
+    return n !== caller && !SESSION.busy.has(n);
+  });
+  if(calleeCandidates.length === 0) return false;
+  var callee = randomChoice(calleeCandidates);
+  pushCallToQueue(caller, callee);
+  return true;
+}
+
+function maybeScheduleFollowUp(caller, callee){
+  if(Math.random() < 0.6){
+    var source = Math.random() < 0.5 ? caller : callee;
+    var delayMs = randInt(8,25)*1000;
+    SESSION.followUps.push({ fireAt: Date.now()+delayMs, source: source });
+  }
+}
+
+function addLog(text){
+  var div = document.createElement('div');
+  div.className = 'logEntry';
+  var t = formatElapsed(Date.now() - SESSION.startedAt);
+  div.textContent = '['+t+'] '+text;
+  logListEl.insertBefore(div, logListEl.firstChild);
+  SESSION.logLines.push(text);
+}
+
+function completeCall(plugIdx){
+  var p = SESSION.plugs[plugIdx];
+  if(!p) return;
+  freeSubscriber(p.caller);
+  freeSubscriber(p.callee);
+  var lengthWord = p.long ? '長い' : '短い';
+  addLog(p.caller+' → '+p.callee+' の通話が終わった（'+lengthWord+'通話）。');
+  playTone('complete');
+  maybeScheduleFollowUp(p.caller, p.callee);
+  SESSION.plugs[plugIdx] = null;
+}
+
+function abandonCallAt(idx){
+  var call = SESSION.queue.splice(idx,1)[0];
+  freeSubscriber(call.caller);
+  freeSubscriber(call.callee);
+  SESSION.blocked.add(call.caller);
+  addLog(call.caller+' は待ちきれず、電話を切った。');
+  playTone('abandon');
+}
+
+function connectCall(id){
+  if(!SESSION || SESSION.ended) return;
+  var idx = SESSION.queue.findIndex(function(c){ return c.id === id; });
+  if(idx === -1) return;
+  var freeSlot = SESSION.plugs.findIndex(function(p){ return p === null; });
+  if(freeSlot === -1){ flashQueueRow(id); return; }
+  var call = SESSION.queue.splice(idx,1)[0];
+  var isLong = Math.random() < (params.longProb/100);
+  var durSec = isLong ? randInt(16,26) : randInt(5,9);
+  SESSION.plugs[freeSlot] = { caller: call.caller, callee: call.callee, endAt: Date.now()+durSec*1000, long: isLong };
+  renderQueue();
+  renderPanel();
+  playTone('connect');
+}
+
+function flashQueueRow(id){
+  var row = queueListEl.querySelector('[data-call-id="'+id+'"]');
+  if(row){
+    row.classList.add('flash');
+    setTimeout(function(){ row.classList.remove('flash'); }, 400);
+  }
+}
+
+function syncPlugCount(){
+  var want = params.plugCount;
+  while(SESSION.plugs.length < want) SESSION.plugs.push(null);
+  while(SESSION.plugs.length > want){
+    var idx = SESSION.plugs.lastIndexOf(null);
+    if(idx === -1) break;
+    SESSION.plugs.splice(idx,1);
+  }
+}
+
+function renderQueue(){
+  if(!SESSION){
+    queueListEl.innerHTML = '<p class="placeholder">交換を始めると、ここに呼び出しが並びます。</p>';
+    return;
+  }
+  if(SESSION.queue.length === 0){
+    queueListEl.innerHTML = '<p class="placeholder">待っている呼び出しはありません。</p>';
+    return;
+  }
+  var now = Date.now();
+  queueListEl.innerHTML = SESSION.queue.map(function(c){
+    var waitSec = Math.floor((now-c.arrivalAt)/1000);
+    var limitSec = params.abandonWaitSec;
+    var urgent = waitSec >= limitSec*0.7;
+    return '<div class="queueRow'+(urgent?' urgent':'')+'" data-call-id="'+c.id+'" onclick="connectCall('+c.id+')">'
+      +'<span class="callPair">'+escapeHtml(c.caller)+' → '+escapeHtml(c.callee)+'</span>'
+      +'<span class="waitTime">'+waitSec+'秒待ち</span>'
+      +'</div>';
+  }).join('');
+}
+
+function renderPanel(){
+  var count = SESSION ? SESSION.plugs.length : params.plugCount;
+  if(!SESSION){
+    var out = '';
+    for(var i=0;i<count;i++) out += '<div class="plugBox empty">空き</div>';
+    plugPanelEl.innerHTML = out;
+    return;
+  }
+  var now = Date.now();
+  plugPanelEl.innerHTML = SESSION.plugs.map(function(p){
+    if(!p) return '<div class="plugBox empty">空き</div>';
+    var remain = Math.max(0, Math.ceil((p.endAt-now)/1000));
+    return '<div class="plugBox busy"><div>'+escapeHtml(p.caller)+' ⟷ '+escapeHtml(p.callee)+'</div>'
+      +'<div class="remain">残り'+remain+'秒</div></div>';
+  }).join('');
+}
+
+function renderTimer(){
+  if(!SESSION){ timerEl.textContent = '未開始'; return; }
+  if(SESSION.ended){ timerEl.textContent = '終了'; return; }
+  var remainMs = Math.max(0, SESSION.endedAt - Date.now());
+  timerEl.textContent = formatElapsed(remainMs)+' 残り';
+}
+
+function tick(){
+  try{
+    if(!SESSION || SESSION.ended) return;
+    var now = Date.now();
+    if(now >= SESSION.endedAt){ endSession(); return; }
+
+    syncPlugCount();
+
+    SESSION.plugs.forEach(function(p, i){
+      if(p && now >= p.endAt) completeCall(i);
+    });
+
+    var toAbandon = [];
+    SESSION.queue.forEach(function(c, i){
+      if(now - c.arrivalAt >= params.abandonWaitSec*1000) toAbandon.push(i);
+    });
+    for(var k=toAbandon.length-1; k>=0; k--) abandonCallAt(toAbandon[k]);
+
+    SESSION.followUps = SESSION.followUps.filter(function(f){
+      if(f.fireAt > now) return true;
+      if(!SESSION.blocked.has(f.source) && !SESSION.busy.has(f.source)){
+        var calleeCandidates = SESSION.subscribers.filter(function(n){
+          return n !== f.source && !SESSION.busy.has(n);
+        });
+        if(calleeCandidates.length > 0){
+          pushCallToQueue(f.source, randomChoice(calleeCandidates));
+        }
+      }
+      return false;
+    });
+
+    if(now >= SESSION.nextCallAt){
+      generateAmbientCall();
+      SESSION.nextCallAt = now + params.callIntervalSec*1000*(0.5+Math.random());
+    }
+
+    renderQueue();
+    renderPanel();
+    renderTimer();
+  }catch(e){
+    showError(e);
+  }
+}
+
+renderQueue();
+renderPanel();
+renderTimer();
+setInterval(tick, 200);
+
+</script>
+</body>
+</html>
