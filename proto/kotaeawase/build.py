@@ -9,5 +9,7 @@ html = html.replace('<!-- __DUMMY__ -->',  '<script>\n' + open('dummy_data.js', 
 html = html.replace('<!-- __REAL__ -->',   '<script>\n' + open('real_decks.js', encoding='utf-8').read() + '\n</script>')
 for ph in ['__ENGINE__','__NET__','__DUMMY__','__REAL__']:
     assert ph not in html, 'placeholder残存: '+ph
-open(out, 'w', encoding='utf-8').write(html)
+# newline='\n': text-mode書き込みは既定でOSのネイティブ改行に変換する。Windowsではこれが
+# 毎回CRLFを混入させる原因だった（v0.8.2/v0.9で手動LF正規化が必要だった恒久対処）。
+open(out, 'w', encoding='utf-8', newline='\n').write(html)
 print('built', out, len(html), 'bytes')
