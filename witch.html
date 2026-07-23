@@ -171,7 +171,7 @@
      ③ 古ければ「?v=新版」という別URLへ飛ぶ → キャッシュが原理的に効かない
    ============================================================ */
 (function(){
-  const PAGE_VER = "1.5";
+  const PAGE_VER = "1.6";
 
   // ① 残存 Service Worker を解除（過去の実験などで残っていると、強制リロードすら効かなくなる）
   if ("serviceWorker" in navigator) {
@@ -281,11 +281,11 @@ const byIdAny=id=>POOL.find(r=>r.id===id)||HARD.find(r=>r.id===id);
 function recipeMats(r){return (r.type==="pair"||r.type==="cnt2"||r.type==="abs2"||r.type==="hard")?[r.a,r.b]:[r.a];}
 function recipeText(r){const m=i=>`${MAT[i].icon}${MAT[i].name}`;
   if(r.type==="pair")return `${m(r.a)} と ${m(r.b)} を同じ坩堝に`;
-  if(r.type==="cnt2")return `${m(r.a)} を2つ以上、または ${m(r.b)} を2つ以上`;
-  if(r.type==="solo")return `${m(r.a)} をちょうど1つ`;
-  if(r.type==="abs2")return `${m(r.a)} と ${m(r.b)} を両方入れない`;
-  if(r.type==="hard")return `${m(r.a)} を2つ以上、かつ ${m(r.b)} を入れない`;
-  return `${m(r.a)} を入れない`;}
+  if(r.type==="cnt2")return `自分の坩堝の中で ${m(r.a)} を2つ以上、または ${m(r.b)} を2つ以上`;
+  if(r.type==="solo")return `自分の坩堝の中で ${m(r.a)} をちょうど1つ`;
+  if(r.type==="abs2")return `自分の坩堝に ${m(r.a)} と ${m(r.b)} を両方入れない`;
+  if(r.type==="hard")return `自分の坩堝の中で ${m(r.a)} を2つ以上、かつ ${m(r.b)} を入れない`;
+  return `自分の坩堝に ${m(r.a)} を入れない`;}
 function scoreRecipe(r,pile){const c=x=>pile.filter(m=>m===x).length;
   if(r.type==="pair")return (c(r.a)>=1&&c(r.b)>=1)?r.pt:0;
   if(r.type==="cnt2")return (c(r.a)>=2||c(r.b)>=2)?r.pt:0;
@@ -738,7 +738,7 @@ async function restoreSavedRoom(){
   if(!(await ensureAuth()))return;
   try{
     const state=await readRoomState(saved.code);
-    if(!state.exists){ forgetRoom(); return; }
+    if(!state.exists){ forgetRoom(); showError("前回の部屋が見つかりませんでした（期限切れ、または削除された可能性があります）。"); return; }
     if(saved.kind==="spectator"){ resumeSpectatorRoom(saved.code,state); return; }
     const seat=findSeatByUid(state.seats,myUid);
     if(seat===null){ forgetRoom(); showError("前回の部屋にあなたの席がないため、再接続できませんでした。"); return; }
@@ -1080,7 +1080,7 @@ function recordPanel(history,cutterN,showPt,revealRecipes){
     <div class="kv" style="margin:4px 0 8px">表示：<b style="color:var(--moon)">${label}</b>${recordView==="cut"?' ／ 左から帯の並び・区切りが切れ目':' ／ 常に同じ魔女が同じ位置'}</div>`;
   history.slice().reverse().forEach(h=>{
     const piles=h.piles||h.contents;
-    html+=`<div class="miniboard"><div class="miniHead"><span><b style="color:var(--moon)">儀式${h.round}</b> ・ 調合師 <span style="color:${PCOL[h.cutter]}">${nameOf(h.cutter)}</span></span><span>合計 <b style="color:${h.roundScore<0?'var(--bad)':'var(--good)'}">${h.roundScore>0?'+':''}${h.roundScore}</b></span></div><div class="miniRow${recordView==="seat"?" seatmode":""}">`;
+    html+=`<div class="miniboard"><div class="miniHead"><span><b style="color:var(--moon)">儀式${h.round}</b> ・ 調合師 <span style="color:${PCOL[h.cutter]}">${nameOf(h.cutter)}</span></span><span>合計 <b style="color:${h.roundScore<0?'var(--bad)':'var(--good)'}">${h.roundScore>0?'+':''}${h.roundScore}</b>${h.pct!=null?` ・ 冴え <b style="color:var(--candle)">${h.pct}%</b>`:''}</span></div><div class="miniRow${recordView==="seat"?" seatmode":""}" data-scroll-id="mini-r${h.round}">`;
     // 表示順を決める
     let order;
     if(recordView==="cut"){ order=piles.map((_,pi)=>pi); } // 帯の並び順（塊のindex順）
@@ -1116,7 +1116,7 @@ function toggleHelp(){
 function term(label,desc){return `<span class="term" onclick="const s=this.classList.contains('show');document.querySelectorAll('.term.show').forEach(e=>e.classList.remove('show'));if(!s)this.classList.add('show');event.stopPropagation();">${label}<span class="tip">${desc}</span></span>`;}
 const T={
   cutter:()=>term("調合師","素材を分ける係。坩堝を選べず、みんなが取った残り一つを受け取る。毎儀式で交代。"),
-  pref:()=>term("好み","自分だけが知る3枚の秘密の条件。叶うと魔力（点）になる。"),
+  pref:()=>term("好み","自分だけが知る3枚の秘密の条件。使い切りではなく、毎儀式、受け取った坩堝の中身で毎回判定される。叶うと魔力（点）になる。"),
   mana:()=>term("魔力","得点のこと。全員の魔力の合計を高めるのが目的。"),
   crucible:()=>term("坩堝","素材を入れる器。分けられた素材の塊がそれぞれ一つの坩堝になる。"),
   keen:()=>term("冴え","完璧（全てを見通した最適）に対する達成度。100%が真の熟達。"),
@@ -1124,11 +1124,11 @@ const T={
 function helpHTML(){
   const m=i=>`${MAT[i].icon}${MAT[i].name}`;
   const typeExamples={
-    pair:`例：「${m(1)} と ${m(4)} を同じ坩堝に」→ その坩堝に両方が入っていれば +4`,
-    cnt2:`例：「${m(0)} を2つ以上、または ${m(1)} を2つ以上」→ どちらか片方が単独で2つ揃えば +5`,
-    solo:`例：「${m(3)} をちょうど1つ」→ 坩堝に${m(3)}がちょうど1個なら +3（2個以上でも0個でもダメ）`,
-    abs2:`例：「${m(2)} と ${m(5)} を両方入れない」→ その坩堝に${m(2)}も${m(5)}も無ければ +3`,
-    abs:`例：「${m(2)} を入れない」→ その坩堝に${m(2)}が無ければ +2`,
+    pair:`例：「${m(1)} と ${m(4)} を同じ坩堝に」→ 自分の坩堝に両方が入っていれば +4`,
+    cnt2:`例：「自分の坩堝の中で ${m(0)} を2つ以上、または ${m(1)} を2つ以上」→ 自分の坩堝にどちらか片方が単独で2つ揃えば +5`,
+    solo:`例：「自分の坩堝の中で ${m(3)} をちょうど1つ」→ 自分の坩堝に${m(3)}がちょうど1個なら +3（2個以上でも0個でもダメ）`,
+    abs2:`例：「自分の坩堝に ${m(2)} と ${m(5)} を両方入れない」→ 自分の坩堝に${m(2)}も${m(5)}も無ければ +3`,
+    abs:`例：「自分の坩堝に ${m(2)} を入れない」→ 自分の坩堝に${m(2)}が無ければ +2`,
   };
   return `<div class="overlay" onclick="if(event.target===this)toggleHelp()"><div class="modal">
     <h2>📖 魔女の調合 ― 遊び方</h2>
@@ -1152,6 +1152,7 @@ function helpHTML(){
     <p>${MAT.map(x=>`${x.icon}${x.name}`).join("　")}</p>
 
     <h3>📖 好みの5つの型</h3>
+    <p class="kv"><b>好みは使い切りではありません。</b>毎儀式、そのとき受け取った坩堝の中身だけで、自分の3枚を毎回あらためて判定します。</p>
     <p><span class="tag pair">🤝 同居</span> ${typeExamples.pair}</p>
     <p><span class="tag cnt2">🔢 個数</span> ${typeExamples.cnt2}</p>
     <p><span class="tag solo">1️⃣ 単体</span> ${typeExamples.solo}</p>
@@ -1169,6 +1170,15 @@ function helpHTML(){
     <h3>🏆 勝敗（${T.keen()}）</h3>
     <p>ゲーム終了時、全儀式のチーム合計を「完璧な分け方で得られた合計」で割った割合が${T.keen()}です。合理的に協力するだけでは8割どまり——<b>仲間を読み切って初めて</b>100%に近づきます。</p>
     <p class="kv">🌕 大魔女 92%以上　🌔 熟達の魔女 82%以上　🌓 一人前の魔女 70%以上　🌒 見習いを抜けし者 58%以上　🌑 駆け出しの魔女 それ未満</p>
+
+    <h3>📚 用語集</h3>
+    <p><b style="color:var(--candle-soft)">坩堝</b> ― 素材を入れる器。分けられた素材の塊がそれぞれ一つの坩堝になる。</p>
+    <p><b style="color:var(--candle-soft)">儀式</b> ― 素材を分けて受け取る1回分の流れ。標準は人数×2回（長めは人数×3回）。</p>
+    <p><b style="color:var(--candle-soft)">魔力</b> ― 得点のこと。全員の魔力の合計を高めるのが目的。</p>
+    <p><b style="color:var(--candle-soft)">調合師</b> ― その儀式で素材を分ける係。坩堝を選べず、みんなが取った残り一つを受け取る。毎儀式で交代。</p>
+    <p><b style="color:var(--candle-soft)">好み</b> ― 自分だけが知る3枚の秘密の条件。使い切りではなく、毎儀式、受け取った坩堝の中身で毎回判定される。</p>
+    <p><b style="color:var(--candle-soft)">冴え</b> ― 完璧（全知の最適解）に対する達成度。100%が真の熟達。</p>
+    <p><b style="color:var(--candle-soft)">秘伝</b> ― 上級モードで加わる、達成困難だが高得点（+10）の複合条件。通常枠2枚に加えて1枚だけ配られる。</p>
 
     <div class="closebar"><button class="primary" onclick="toggleHelp()">閉じる</button></div>
   </div></div>`;
@@ -1253,7 +1263,7 @@ function spectatorHTML(){
       html+=`</div>`; }
     html+=`</div></div>`;
   } else {
-    html+=`<div class="panel"><div class="eyebrow">🪵 作業台の素材（分ける前）</div><div class="bench">${g.band.map(m=>`<div class="slot">${matChip(m)}</div>`).join("")}</div></div>`;
+    html+=`<div class="panel"><div class="eyebrow">🪵 作業台の素材（分ける前）</div><div class="bench" data-scroll-id="bench">${g.band.map(m=>`<div class="slot">${matChip(m)}</div>`).join("")}</div></div>`;
   }
 
   // 採点結果（出ていれば）
@@ -1261,7 +1271,8 @@ function spectatorHTML(){
     html+=`<div class="panel"><div class="eyebrow">🌟 この儀式の結果</div>
       <div class="row spread"><div class="kv">チーム合計</div><div class="big" style="color:${e.roundScore<0?'var(--bad)':'var(--good)'}">${e.roundScore>0?'+':''}${e.roundScore}</div></div>
       <div class="kv" style="margin-top:6px">完璧 ${e.omni}　合理目安 ${e.rational}　冴え <b style="color:var(--candle)">${e.pct}%</b>${e.cutPct!=null?`　切り方の質 <b>${e.cutPct}%</b>`:''}</div>
-      <div class="meterwrap"><div class="meter" style="width:${Math.max(0,Math.min(100,e.pct))}%"></div></div></div>`;
+      <div class="meterwrap"><div class="meter" style="width:${Math.max(0,Math.min(100,e.pct))}%"></div></div>
+      <div class="hint"><span class="hi">✎</span><span>この儀式で受け取った素材はここで魔力に変換され、次の儀式へは持ち越されない。</span></div></div>`;
   }
 
   // プレイ中は個人点を出さない。終了後、reveal がある場合だけ答え合わせを表示。
@@ -1294,7 +1305,7 @@ function highlightPanel(history,n,allRecipes){
     const star=feats.find(f=>f.owner!==seat);
     html+=`<div class="miniboard" style="padding:12px 0">
       <div class="miniHead" style="margin-bottom:8px"><span><b style="color:${PCOL[seat]}">${nameOf(seat)}</b> の最高の調合 ・ <span class="kv">儀式${best.round}</span></span></div>
-      <div class="miniRow">`;
+      <div class="miniRow" data-scroll-id="highlight-${seat}">`;
     for(let pi=0;pi<piles.length;pi++){ const owner=owners[pi];
       html+=`<div class="miniPile"><div class="miniMats">${(piles[pi]||[]).map(m=>`<span class="miniGem" style="background:${MAT[m].color}">${MAT[m].icon}</span>`).join("")}</div>
         <div class="miniOwner"><span style="color:${PCOL[owner]}">${nameOf(owner).slice(0,3)}</span>${owner===seat?'<span style="color:var(--candle);opacity:.7">🔪</span>':''}</div></div>`; }
@@ -1405,21 +1416,21 @@ function soloHTML(){
   const order=chooseOrder(g.cutter,n); const curChooser=(g.phase==="choose")?order[g.chooseIdx]:null;
   html+=`<div class="panel"><div class="row spread"><div><span class="phase">🕯️ 儀式 ${g.round}/${g.rounds}</span> 調合師 ${pill(g.cutter)}${g.advanced?' <span class="tag hard" style="font-size:11px">🌟 秘伝</span>':''}</div><div class="kv" style="text-align:right">総魔力<br><span class="big" style="font-size:22px">${g.teamTotal}</span></div></div></div>`;
   // 全員の好み（検証用に常時表示）
-  html+=`<div class="panel"><div class="eyebrow">📖 全員の好み（検証用・全表示）</div>`;
+  html+=`<div class="panel"><div class="eyebrow">📖 全員の好み（検証用・全表示） <span class="kv">— 毎儀式、坩堝の中身で判定</span></div>`;
   for(let p=0;p<n;p++){ const pileOf=g.phase!=="cut"&&g.assign? (function(){for(let pi=0;pi<n;pi++)if(g.assign[pi]===p)return g.piles[pi];return null;})():null;
     html+=`<div class="kv" style="margin-top:6px">${pill(p)}${p===g.cutter?' 🔪':''}${curChooser===p?' <span class="yourturn">◀ 選ぶ番</span>':''}</div>`+bookList(g.players[p],pileOf); }
   html+=`</div>`;
   // 作業台
   html+=`<div class="panel"><div class="eyebrow">🪵 作業台の素材</div>`;
   const cuts=(g.phase==="cut")?soloCuts:(g.cuts||[]);
-  html+=`<div class="bench">`;
+  html+=`<div class="bench" data-scroll-id="bench">`;
   for(let i=0;i<g.band.length;i++){ html+=`<div class="slot">${matChip(g.band[i])}</div>`;
     if(i<g.band.length-1){ const pos=i+1; const isCut=cuts.includes(pos); const dis=g.phase!=="cut";
       html+=`<div class="gap ${isCut?'cut':''} ${dis?'disabled':''}" ${dis?'':`onclick="soloToggleCut(${pos})"`}></div>`; } }
   html+=`</div>`;
   if(g.phase==="cut"){
     if(soloCuts.length>0){ const pv=toPiles(g.band,soloCuts.slice().sort((a,b)=>a-b));
-      html+=`<div style="margin-top:12px"><div class="kv" style="margin-bottom:5px">分かれ方（プレビュー）：</div><div class="miniRow">`;
+      html+=`<div style="margin-top:12px"><div class="kv" style="margin-bottom:5px">分かれ方（プレビュー）：</div><div class="miniRow" data-scroll-id="cutpreview">`;
       for(const pl of pv)html+=`<div class="miniPile"><div class="miniMats">${pl.map(m=>`<span class="miniGem" style="background:${MAT[m].color}">${MAT[m].icon}</span>`).join("")}</div><div class="miniOwner"><span class="kv">${pl.length}個</span></div></div>`;
       html+=`</div></div>`; }
     html+=`<div class="row" style="margin-top:12px"><button class="primary" ${soloCuts.length!==n-1?'disabled':''} onclick="soloConfirmCut()">🔪 この位置で分ける（${soloCuts.length}/${n-1}）</button>
@@ -1445,6 +1456,7 @@ function soloHTML(){
       <div class="row spread"><div class="kv">チーム合計</div><div class="big" style="color:${e.roundScore<0?'var(--bad)':'var(--good)'}">${e.roundScore>0?'+':''}${e.roundScore}</div></div>
       <div class="kv" style="margin-top:6px">完璧 ${e.omni}　合理 ${e.rational}　冴え <b style="color:var(--candle)">${e.pct}%</b></div>
       <div class="meterwrap"><div class="meter" style="width:${e.pct}%"></div></div>
+      <div class="hint"><span class="hi">✎</span><span>この儀式で受け取った素材はここで魔力に変換され、坩堝は空になる。次の儀式へは持ち越されない。</span></div>
       <div class="row" style="margin-top:12px"><button class="primary" onclick="soloNext()">${g.round>=g.rounds?'✦ 儀式を終える':'次の儀式へ →'}</button></div></div>`;
   }
   // 記録ミニ盤面（ソロは個人点も表示）
@@ -1669,17 +1681,17 @@ function nsoloHTML(){
   html+=`<div class="panel"><div class="eyebrow">🎭 仲間</div>`;
   for(let p=1;p<n;p++){ html+=nsoloNpcPanelHTML(p); }
   html+=`</div>`;
-  html+=`<div class="panel"><div class="eyebrow">📖 あなたの好み</div>`+bookList(g.hands[NSOLO_PLAYER_SEAT].map(i=>POOL[i]),null)+`</div>`;
+  html+=`<div class="panel"><div class="eyebrow">📖 あなたの好み <span class="kv">— 毎儀式、坩堝の中身で判定</span></div>`+bookList(g.hands[NSOLO_PLAYER_SEAT].map(i=>POOL[i]),null)+`</div>`;
   html+=`<div class="panel"><div class="eyebrow">🪵 作業台の素材</div>`;
   const cuts=(g.phase==="cut"&&myTurnCut)?nsoloCuts:(g.cuts||[]);
-  html+=`<div class="bench">`;
+  html+=`<div class="bench" data-scroll-id="bench">`;
   for(let i=0;i<g.band.length;i++){ html+=`<div class="slot">${matChip(g.band[i])}</div>`;
     if(i<g.band.length-1){ const pos=i+1; const isCut=cuts.includes(pos); const dis=!myTurnCut;
       html+=`<div class="gap ${isCut?'cut':''} ${dis?'disabled':''}" ${dis?'':`onclick="nsoloToggleCut(${pos})"`}></div>`; } }
   html+=`</div>`;
   if(g.phase==="cut"&&myTurnCut){
     if(nsoloCuts.length>0){ const pv=toPiles(g.band,nsoloCuts.slice().sort((a,b)=>a-b));
-      html+=`<div style="margin-top:12px"><div class="kv" style="margin-bottom:5px">分かれ方（プレビュー）：</div><div class="miniRow">`;
+      html+=`<div style="margin-top:12px"><div class="kv" style="margin-bottom:5px">分かれ方（プレビュー）：</div><div class="miniRow" data-scroll-id="cutpreview">`;
       for(const pl of pv)html+=`<div class="miniPile"><div class="miniMats">${pl.map(m=>`<span class="miniGem" style="background:${MAT[m].color}">${MAT[m].icon}</span>`).join("")}</div><div class="miniOwner"><span class="kv">${pl.length}個</span></div></div>`;
       html+=`</div></div>`; }
     html+=`<div class="row" style="margin-top:12px"><span class="yourturn">あなたが分けます</span>
@@ -1704,6 +1716,7 @@ function nsoloHTML(){
       <div class="row spread"><div class="kv">この儀式でチームが得た魔力</div><div class="big" style="color:${e.roundScore<0?'var(--bad)':'var(--good)'}">${e.roundScore>0?'+':''}${e.roundScore}</div></div>
       <div class="kv" style="margin-top:6px">完璧（全知最大）${e.omni}　冴え <b style="color:var(--candle)">${e.pct}%</b></div>
       <div class="meterwrap"><div class="meter" style="width:${Math.max(0,Math.min(100,e.pct))}%"></div></div>
+      <div class="hint"><span class="hi">✎</span><span>この儀式で受け取った素材はここで魔力に変換され、坩堝は空になる。次の儀式へは持ち越されない。</span></div>
       <div class="hint"><span class="hi">✎</span><span>公開されるのは<b>チーム合計だけ</b>。仲間がどう切り、どう選んだかから好みを読む。</span></div>
       <div class="row" style="margin-top:14px"><button class="primary" onclick="nsoloNextRound()">${g.round>=NSOLO_ROUNDS?'✦ 儀式を終える':'次の儀式へ →'}</button></div></div>`;
   }
@@ -1846,20 +1859,39 @@ function _guardRender(fn){
     return r;
   };
 }
+/* ★スクロール位置の共通保全機構
+   render()はapp.innerHTMLを丸ごと差し替えるため、素材列(.bench)や工房の記録(.miniRow)の
+   横スクロール位置が再描画のたびに先頭へ戻ってしまう（§4-3と同根）。
+   data-scroll-id を付けた要素だけ、差し替え前後でscrollLeft/scrollTopを保存・復元する。 */
+function captureScrollPositions(container){
+  const map={};
+  container.querySelectorAll("[data-scroll-id]").forEach(el=>{
+    map[el.getAttribute("data-scroll-id")]={left:el.scrollLeft,top:el.scrollTop};
+  });
+  return map;
+}
+function restoreScrollPositions(container,map){
+  container.querySelectorAll("[data-scroll-id]").forEach(el=>{
+    const pos=map[el.getAttribute("data-scroll-id")];
+    if(pos){ el.scrollLeft=pos.left; el.scrollTop=pos.top; }
+  });
+}
 function render(){
   renderBanner();
   const app=document.getElementById("app");
-  if(SOLO.active){ app.innerHTML=soloHTML(); return; }
-  if(NSOLO.active){ app.innerHTML=nsoloHTML(); return; }
-  if(!ST.room){ app.innerHTML=homeHTML(); return; }
+  const _scroll=captureScrollPositions(app);
+  const setApp=html=>{ app.innerHTML=html; restoreScrollPositions(app,_scroll); };
+  if(SOLO.active){ setApp(soloHTML()); return; }
+  if(NSOLO.active){ setApp(nsoloHTML()); return; }
+  if(!ST.room){ setApp(homeHTML()); return; }
   let html=statusBar();
   const phase=ST.meta&&ST.meta.phase;
-  if(ST.spectator){ html+=spectatorHTML(); app.innerHTML=html; return; }
+  if(ST.spectator){ html+=spectatorHTML(); setApp(html); return; }
   if(phase==="lobby"){ html+=lobbyHTML(); }
   else if(phase==="playing"){ html+=gameHTML(); }
   else if(phase==="ended"){ html+=endHTML(); }
   else { html+=`<div class="panel"><div class="kv">部屋を同期中…</div></div>`; }
-  app.innerHTML=html;
+  setApp(html);
 }
 function homeHTML(){
   return `<div class="panel" style="padding:0;overflow:hidden;border:none;background:none;margin-bottom:14px">${heroSVG()}</div>
@@ -1882,11 +1914,30 @@ function homeHTML(){
     <div class="hint" style="margin-top:10px"><span class="hi">✎</span><span>好みはFirebaseのUIDごとに分離され、通常プレイヤーは自分の好みだけを読めます。観戦者には終了後の公開まで配信されません。進行役（ホスト）は配布・採点のため全好みを扱います。</span></div>
   </div>`;
 }
+function copyRoomCode(){
+  const code=ST.room; if(!code)return;
+  const btn=document.getElementById("copyCodeBtn"); const old=btn?btn.textContent:"";
+  const done=()=>{ if(!btn||!btn.isConnected)return; btn.textContent="✅ コピーしました"; setTimeout(()=>{ if(btn.isConnected)btn.textContent=old; },1500); };
+  const fail=()=>{ showError("コピーに失敗しました。表示されているコードを手動で選択してコピーしてください。"); };
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(code).then(done).catch(()=>fallbackCopyText(code,done,fail)); }
+  else{ fallbackCopyText(code,done,fail); }
+}
+function fallbackCopyText(text,done,fail){
+  try{
+    const ta=document.createElement("textarea");
+    ta.value=text; ta.style.position="fixed"; ta.style.opacity="0"; ta.style.top="0"; ta.style.left="0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    const ok=document.execCommand("copy");
+    document.body.removeChild(ta);
+    if(ok)done(); else fail();
+  }catch(e){ fail(); }
+}
 function lobbyHTML(){
   const seats=liveSeats(); const n=seats.length;
   let html=`<div class="panel"><div class="eyebrow">🕯️ 参加者を待っています</div>
     <div class="kv">この合言コードを仲間に伝えてください：</div>
     <div class="code">${ST.room}</div>
+    <div class="row" style="justify-content:center;margin-top:2px"><button class="ghost" id="copyCodeBtn" style="font-size:12px;padding:5px 10px" onclick="copyRoomCode()">📋 コードをコピー</button></div>
     <div style="margin-top:6px">`;
   for(let s=0;s<4;s++){ const seat=ST.seats&&ST.seats[s];
     if(seat) html+=`<div class="seat ${seat.uid===myUid?'me':''}"><span class="dot ${seatActive(s)?'on':'off'}"></span>${pill(s)}${seat.uid===(ST.meta&&ST.meta.host)?'<span class="kv"> 👑ホスト</span>':''}${seat.uid===myUid?'<span class="kv"> (あなた)</span>':''}</div>`;
@@ -1939,14 +1990,14 @@ function gameHTML(){
   html+=`</div>`;
 
   // 自分の好み（表示分離：自席のみ）
-  html+=`<div class="panel"><div class="eyebrow">📖 あなた（${pill(ST.mySeat)}）の好み <span class="kv">— あなただけに見えています</span></div>`;
+  html+=`<div class="panel"><div class="eyebrow">📖 あなた（${pill(ST.mySeat)}）の好み <span class="kv">— あなただけに見えています・毎儀式、坩堝の中身で判定</span></div>`;
   html+= ST.myRecipes?bookList(ST.myRecipes,null):`<div class="kv">好みを取得中…</div>`;
   html+=`</div>`;
 
   // 作業台
   html+=`<div class="panel"><div class="eyebrow">🪵 作業台の素材</div>`;
   const cuts = (g.phase==="cut" && myTurn_cut) ? localCuts : (g.cuts||[]);
-  html+=`<div class="bench">`;
+  html+=`<div class="bench" data-scroll-id="bench">`;
   for(let i=0;i<g.band.length;i++){ html+=`<div class="slot">${matChip(g.band[i])}</div>`;
     if(i<g.band.length-1){ const pos=i+1; const isCut=cuts.includes(pos); const dis=!myTurn_cut;
       html+=`<div class="gap ${isCut?'cut':''} ${dis?'disabled':''}" ${dis?'':`onclick="toggleLocalCut(${pos})"`}></div>`; }
@@ -1957,7 +2008,7 @@ function gameHTML(){
       // 切り方プレビュー
       if(localCuts.length>0){
         const pv=toPiles(g.band,localCuts.slice().sort((a,b)=>a-b));
-        html+=`<div style="margin-top:12px"><div class="kv" style="margin-bottom:5px">分かれ方（プレビュー・${localCuts.length+1}/${n}塊）：</div><div class="miniRow">`;
+        html+=`<div style="margin-top:12px"><div class="kv" style="margin-bottom:5px">分かれ方（プレビュー・${localCuts.length+1}/${n}塊）：</div><div class="miniRow" data-scroll-id="cutpreview">`;
         for(let pi=0;pi<pv.length;pi++){ html+=`<div class="miniPile"><div class="miniMats">${pv[pi].map(m=>`<span class="miniGem" style="background:${MAT[m].color}" title="${MAT[m].name}">${MAT[m].icon}</span>`).join("")}</div><div class="miniOwner"><span class="kv">${pv[pi].length}個</span></div></div>`; }
         html+=`</div></div>`;
       }
@@ -2000,6 +2051,7 @@ function gameHTML(){
       ${myScoreLine}
       <div class="kv" style="margin-top:6px">完璧（全知最大）${e.omni}　冴え <b style="color:var(--candle)">${e.pct}%</b></div>
       <div class="meterwrap"><div class="meter" style="width:${Math.max(0,Math.min(100,e.pct))}%"></div></div>
+      <div class="hint"><span class="hi">✎</span><span>この儀式で受け取った素材はここで魔力に変換され、坩堝は空になる。<b>次の儀式へは持ち越されない</b>。</span></div>
       <div class="hint"><span class="hi">✎</span><span>公開されるのは<b>チーム合計だけ</b>。各自の点は本人にしか見えない。<b>誰がどう切り、どの塊を選んだか</b>——そこから仲間の好みを読む。</span></div>`;
     html+=`<div class="row" style="margin-top:14px"><button class="primary" onclick="nextRound()">${g.round>=g.rounds?'✦ 儀式を終える':'次の儀式へ →'}</button></div>
       <div class="hint"><span class="hi">✎</span><span>誰でも進められます。準備ができた人が押してください。</span></div>`;
@@ -2028,7 +2080,7 @@ function endHTML(){
     <div style="font-family:var(--grimoire);color:var(--candle)">通算の冴え ${keen}%</div></div>`;
   html+=`<div class="panel"><div class="eyebrow">🏁 総まとめ（${g.n}人・${g.rounds}儀式）</div>
     <div class="kv">総魔力 <b style="color:var(--good)">${g.teamTotal}</b>　通算冴え <b>${keen}%</b>（合理目安 ${ratP}%）</div>
-    <div class="kv" style="margin-top:6px">儀式ごと：${g.history.map(h=>`${h.round}:${h.roundScore>0?'+':''}${h.roundScore}`).join("　")}</div></div>`;
+    <div class="kv" style="margin-top:6px">儀式ごと：${g.history.map(h=>`${h.round}:${h.roundScore>0?'+':''}${h.roundScore}${h.pct!=null?`（冴え${h.pct}%）`:''}`).join("　")}</div></div>`;
   // 名場面（好みが公開された後のみ）
   if(ST.allRecipes) html+=highlightPanel(g.history, g.n, ST.allRecipes);
   html+=`<div class="panel"><div class="eyebrow">📖 明かされる好み</div>`;
@@ -2056,7 +2108,7 @@ restoreSavedRoom();
 cleanupExpiredRooms();
 </script>
 <a id="homelink" href="index.html" title="ゲーム一覧へ戻る">🏠 ゲーム一覧</a>
-<div id="verbadge">魔女の調合 v1.5</div>
+<div id="verbadge">魔女の調合 v1.6</div>
 <style>
 #homelink{position:fixed;left:8px;bottom:6px;z-index:9999;
  font:11px/1.5 system-ui,sans-serif;letter-spacing:.04em;text-decoration:none;
