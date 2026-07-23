@@ -114,3 +114,64 @@ test("観戦復帰は共有情報だけを再購読しprivateRecipesを購読し
   assert.doesNotMatch(spectator, /privateRecipes/);
   assert.match(spectator, /ST\.myRecipes=null/);
 });
+
+test("P0-1: 保存済み部屋が見つからない場合も無言で終わらずshowErrorする", () => {
+  const restore = html.slice(html.indexOf("async function restoreSavedRoom()"), html.indexOf("async function createRoom()"));
+  assert.match(restore, /if\(!state\.exists\)\{ forgetRoom\(\); showError\(/);
+});
+
+test("P1-1: render()はscrollLeft/scrollTopを共通機構で保存・復元する", () => {
+  const render = html.slice(html.indexOf("function captureScrollPositions"), html.indexOf("function homeHTML()"));
+  assert.match(render, /function captureScrollPositions\(container\)\{/);
+  assert.match(render, /function restoreScrollPositions\(container,map\)\{/);
+  assert.match(render, /const _scroll=captureScrollPositions\(app\)/);
+  assert.match(render, /const setApp=html=>\{ app\.innerHTML=html; restoreScrollPositions\(app,_scroll\); \}/);
+  // 素材列・工房の記録・切り方プレビューの全コンテナにdata-scroll-idが付与されている
+  const benchCount = (html.match(/class="bench" data-scroll-id="bench"/g) || []).length;
+  assert.equal(benchCount, 4); // spectator / solo / nsolo / game
+  const cutpreviewCount = (html.match(/data-scroll-id="cutpreview"/g) || []).length;
+  assert.equal(cutpreviewCount, 3); // solo / nsolo / game
+  assert.match(html, /data-scroll-id="mini-r\$\{h\.round\}"/);
+  assert.match(html, /data-scroll-id="highlight-\$\{seat\}"/);
+});
+
+test("P2-1: 部屋コードのコピーはclipboard APIとフォールバックの両方を備え、失敗時はエラーを表示する", () => {
+  assert.match(html, /function copyRoomCode\(\)\{/);
+  assert.match(html, /navigator\.clipboard&&navigator\.clipboard\.writeText/);
+  assert.match(html, /function fallbackCopyText\(text,done,fail\)\{/);
+  assert.match(html, /document\.execCommand\("copy"\)/);
+  const copyFn = html.slice(html.indexOf("function copyRoomCode()"), html.indexOf("function fallbackCopyText("));
+  assert.match(copyFn, /showError\(/);
+  assert.match(html, /onclick="copyRoomCode\(\)"/);
+});
+
+test("P2-2: 好みは使い切りでなく毎儀式判定されることが明記されている", () => {
+  assert.match(html, /使い切りではなく、毎儀式、受け取った坩堝の中身で毎回判定される/);
+  assert.match(html, /好みは使い切りではありません/);
+});
+
+test("P2-3: 採点結果に素材が次の儀式へ持ち越されない旨の一文がある", () => {
+  const hintCount = (html.match(/この儀式で受け取った素材はここで魔力に変換され/g) || []).length;
+  assert.ok(hintCount >= 4); // spectator / solo / nsolo / game
+});
+
+test("P2-4: 好みの型の説明文はすべて自分の坩堝であることを明記する（同居型は同じ坩堝にで代替）", () => {
+  const recipeText = html.slice(html.indexOf("function recipeText(r)"), html.indexOf("function scoreRecipe(r,pile)"));
+  assert.match(recipeText, /自分の坩堝の中で \$\{m\(r\.a\)\} を2つ以上、または/); // cnt2
+  assert.match(recipeText, /自分の坩堝の中で \$\{m\(r\.a\)\} をちょうど1つ/); // solo
+  assert.match(recipeText, /自分の坩堝に \$\{m\(r\.a\)\} と \$\{m\(r\.b\)\} を両方入れない/); // abs2
+  assert.match(recipeText, /自分の坩堝に \$\{m\(r\.a\)\} を入れない/); // abs
+});
+
+test("P2-5: 遊び方に独立した用語集セクションがある", () => {
+  const help = html.slice(html.indexOf("function helpHTML()"), html.indexOf("async function spectate()"));
+  assert.match(help, /<h3>📚 用語集<\/h3>/);
+  for (const term of ["坩堝", "儀式", "魔力", "調合師", "好み", "冴え", "秘伝"]) {
+    assert.ok(help.includes(term), `用語集に${term}が見つからない`);
+  }
+});
+
+test("P2-6/P2-7: 工房の記録と終了画面に儀式ごとの冴え%が表示される", () => {
+  assert.match(html, /合計 <b style="color:\$\{h\.roundScore<0\?'var\(--bad\)':'var\(--good\)'\}">\$\{h\.roundScore>0\?'\+':''\}\$\{h\.roundScore\}<\/b>\$\{h\.pct!=null\?` ・ 冴え <b style="color:var\(--candle\)">\$\{h\.pct\}%<\/b>`:''\}/);
+  assert.match(html, /儀式ごと：\$\{g\.history\.map\(h=>`\$\{h\.round\}:\$\{h\.roundScore>0\?'\+':''\}\$\{h\.roundScore\}\$\{h\.pct!=null\?`（冴え\$\{h\.pct\}%）`:''\}`\)\.join\("　"\)\}/);
+});
